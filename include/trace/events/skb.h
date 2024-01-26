@@ -5,6 +5,7 @@
 #if !defined(_TRACE_SKB_H) || defined(TRACE_HEADER_MULTI_READ)
 #define _TRACE_SKB_H
 
+#include <linux/mm_types.h>
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
 #include <linux/tracepoint.h>
@@ -87,6 +88,115 @@ TRACE_EVENT(skb_copy_datagram_iovec,
 	),
 
 	TP_printk("skbaddr=%p len=%d", __entry->skbaddr, __entry->len)
+);
+
+TRACE_EVENT(napi_alloc_frag,
+
+	TP_PROTO(void* location, const struct page *page, const void* data, unsigned int len),
+
+	TP_ARGS(location, page, data, len),
+
+	TP_STRUCT__entry(
+		__field(	void *,	location)
+		__field(	const void *,		pageaddr		)
+		__field(	const void *,		dataaddr		)
+		__field(	int,			len		)
+	),
+
+	TP_fast_assign(
+		__entry->location = location;
+		__entry->pageaddr = page;
+		__entry->dataaddr = data;
+		__entry->len = len;
+	),
+
+	TP_printk("location=%pS page=%p ptr=%p len=%d", __entry->location, __entry->pageaddr, __entry->dataaddr, __entry->len)
+);
+
+TRACE_EVENT(netdev_alloc_frag,
+
+	TP_PROTO(void* location, const struct page *page, const void* data, unsigned int len),
+
+	TP_ARGS(location, page, data, len),
+
+	TP_STRUCT__entry(
+		__field(	void *,		location		)
+		__field(	const void *,		pageaddr		)
+		__field(	const void *,		dataaddr		)
+		__field(	int,			len		)
+	),
+
+	TP_fast_assign(
+		__entry->location = location;
+		__entry->pageaddr = page;
+		__entry->dataaddr = data;
+		__entry->len = len;
+	),
+
+	TP_printk("location=%pS page=%p ptr=%p,len=%d", __entry->location, __entry->pageaddr, __entry->dataaddr, __entry->len)
+);
+
+TRACE_EVENT(skb_head_kmalloc,
+
+	TP_PROTO(void* location, const void* data, unsigned int len),
+
+	TP_ARGS(location, data, len),
+
+	TP_STRUCT__entry(
+		__field( void*, location )
+		__field(	const void *,		dataaddr		)
+		__field(	int,			len		)
+	),
+
+	TP_fast_assign(
+		__entry->location = location;
+		__entry->dataaddr = data;
+		__entry->len = len;
+	),
+
+	TP_printk("location=%pS ptr=%p len=%d", __entry->location, __entry->dataaddr, __entry->len)
+);
+
+TRACE_EVENT(skb_head_frag_free,
+
+	TP_PROTO(const struct sk_buff *skb, const struct page *page, const const void* data),
+
+
+	TP_ARGS(skb, page, data),
+
+	TP_STRUCT__entry(
+		__field( const void*, skbaddr )
+		__field( const void*, pageaddr )
+		__field(	const void *,		dataaddr		)
+	),
+
+	TP_fast_assign(
+		__entry->dataaddr = data;
+		__entry->pageaddr = page;
+		__entry->skbaddr = skb;
+	),
+
+	TP_printk("skb=%p page=%p ptr=%p", __entry->skbaddr, __entry->pageaddr, __entry->dataaddr)
+);
+
+TRACE_EVENT(skb_head_kfree,
+
+	TP_PROTO(const struct sk_buff *skb, const void* data),
+
+
+	TP_ARGS(skb, data),
+
+	TP_STRUCT__entry(
+		__field( const void*, skbaddr )
+		__field(	const void *,		dataaddr		)
+	),
+
+	TP_fast_assign(
+		__entry->dataaddr = data;
+		__entry->skbaddr = skb;
+	),
+
+	TP_printk("skb=%p ptr=%p", __entry->skbaddr, __entry->dataaddr)
 );
 
 #endif /* _TRACE_SKB_H */

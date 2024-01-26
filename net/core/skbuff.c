@@ -651,6 +651,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
 	data = kmalloc_reserve(&size, gfp_mask, node, &pfmemalloc);
 	if (unlikely(!data))
 		goto nodata;
+	trace_skb_head_kmalloc(__builtin_return_address(0), data, size);
 	/* kmalloc_size_roundup() might give us more room than requested.
 	 * Put skb_shared_info exactly at the end of allocated zone,
 	 * to allow max possible filling before reallocation.
@@ -726,6 +727,7 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev, unsigned int len,
 	if (in_hardirq() || irqs_disabled()) {
 		nc = this_cpu_ptr(&netdev_alloc_cache);
 		data = page_frag_alloc(nc, len, gfp_mask);
+		trace_netdev_alloc_frag(__builtin_return_address(0), virt_to_head_page(data), data, len);
 		pfmemalloc = nc->pfmemalloc;
 	} else {
 		local_bh_disable();
@@ -733,6 +735,7 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev, unsigned int len,
 		data = page_frag_alloc(nc, len, gfp_mask);
 		pfmemalloc = nc->pfmemalloc;
 		local_bh_enable();
+		trace_napi_alloc_frag(__builtin_return_address(0), virt_to_head_page(data), data, len);
 	}
 
 	if (unlikely(!data))
@@ -820,6 +823,7 @@ struct sk_buff *__napi_alloc_skb(struct napi_struct *napi, unsigned int len,
 		len = SKB_HEAD_ALIGN(len);
 
 		data = page_frag_alloc(&nc->page, len, gfp_mask);
+		trace_napi_alloc_frag(__builtin_return_address(0), virt_to_head_page(data), data, len);
 		pfmemalloc = nc->page.pfmemalloc;
 	}
 
@@ -993,8 +997,10 @@ static void skb_free_head(struct sk_buff *skb, bool napi_safe)
 	if (skb->head_frag) {
 		if (skb_pp_recycle(skb, head, napi_safe))
 			return;
+		trace_skb_head_frag_free(skb, virt_to_head_page(head), head);
 		skb_free_frag(head);
 	} else {
+		trace_skb_head_kfree(skb, head);
 		skb_kfree_head(head, skb_end_offset(skb));
 	}
 }
