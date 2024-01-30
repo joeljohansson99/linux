@@ -199,6 +199,28 @@ TRACE_EVENT(skb_head_kfree,
 	TP_printk("skb=%p ptr=%p", __entry->skbaddr, __entry->dataaddr)
 );
 
+TRACE_EVENT(finalize_skb_around,
+
+	TP_PROTO(const struct sk_buff *skb, const void* data, unsigned int size),
+
+
+	TP_ARGS(skb, data, size),
+
+	TP_STRUCT__entry(
+		__field( const void*, skbaddr )
+		__field(const void *,		dataaddr		)
+		__field(unsigned int,		size		)
+	),
+
+	TP_fast_assign(
+		__entry->dataaddr = data;
+		__entry->skbaddr = skb;
+		__entry->size = size;
+	),
+
+	TP_printk("skb=%p ptr=%p size=%d", __entry->skbaddr, __entry->dataaddr, __entry->size)
+);
+
 #endif /* _TRACE_SKB_H */
 
 /* This part must be outside protection */

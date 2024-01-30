@@ -293,11 +293,17 @@ void napi_get_frags_check(struct napi_struct *napi)
 
 void *__napi_alloc_frag_align(unsigned int fragsz, unsigned int align_mask)
 {
+	void *data;
+
 	struct napi_alloc_cache *nc = this_cpu_ptr(&napi_alloc_cache);
 
 	fragsz = SKB_DATA_ALIGN(fragsz);
+	
+	data = page_frag_alloc_align(&nc->page, fragsz, GFP_ATOMIC, align_mask);
 
-	return page_frag_alloc_align(&nc->page, fragsz, GFP_ATOMIC, align_mask);
+	trace_napi_alloc_frag(__builtin_return_address(0), virt_to_head_page(data), data, fragsz);
+
+	return data;
 }
 EXPORT_SYMBOL(__napi_alloc_frag_align);
 
@@ -310,6 +316,7 @@ void *__netdev_alloc_frag_align(unsigned int fragsz, unsigned int align_mask)
 		struct page_frag_cache *nc = this_cpu_ptr(&netdev_alloc_cache);
 
 		data = page_frag_alloc_align(nc, fragsz, GFP_ATOMIC, align_mask);
+		trace_netdev_alloc_frag(__builtin_return_address(0), virt_to_head_page(data), data, fragsz);
 	} else {
 		struct napi_alloc_cache *nc;
 
@@ -317,7 +324,10 @@ void *__netdev_alloc_frag_align(unsigned int fragsz, unsigned int align_mask)
 		nc = this_cpu_ptr(&napi_alloc_cache);
 		data = page_frag_alloc_align(&nc->page, fragsz, GFP_ATOMIC, align_mask);
 		local_bh_enable();
+		trace_napi_alloc_frag(__builtin_return_address(0), virt_to_head_page(data), data, fragsz);
 	}
+
+
 	return data;
 }
 EXPORT_SYMBOL(__netdev_alloc_frag_align);
@@ -365,6 +375,8 @@ static inline void __finalize_skb_around(struct sk_buff *skb, void *data,
 	atomic_set(&shinfo->dataref, 1);
 
 	skb_set_kcov_handle(skb, kcov_common_handle());
+
+	trace_finalize_skb_around(skb, data, size);
 }
 
 static inline void *__slab_build_skb(struct sk_buff *skb, void *data,
