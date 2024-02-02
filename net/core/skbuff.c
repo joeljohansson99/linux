@@ -572,6 +572,7 @@ static void *kmalloc_reserve(unsigned int *size, gfp_t flags, int node,
 		obj = kmem_cache_alloc_node(skb_small_head_cache,
 				flags | __GFP_NOMEMALLOC | __GFP_NOWARN,
 				node);
+		trace_skb_small_head_alloc(__builtin_return_address(0), obj, obj_size);
 		*size = SKB_SMALL_HEAD_CACHE_SIZE;
 		if (obj || !(gfp_pfmemalloc_allowed(flags)))
 			goto out;
@@ -996,8 +997,10 @@ static int skb_pp_frag_ref(struct sk_buff *skb)
 
 static void skb_kfree_head(void *head, unsigned int end_offset)
 {
-	if (end_offset == SKB_SMALL_HEAD_HEADROOM)
+	if (end_offset == SKB_SMALL_HEAD_HEADROOM) {
 		kmem_cache_free(skb_small_head_cache, head);
+		trace_skb_small_head_free(__builtin_return_address(0), head);
+	}
 	else
 		kfree(head);
 }

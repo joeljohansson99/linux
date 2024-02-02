@@ -221,6 +221,46 @@ TRACE_EVENT(finalize_skb_around,
 	TP_printk("skb=%p ptr=%p size=%d", __entry->skbaddr, __entry->dataaddr, __entry->size)
 );
 
+TRACE_EVENT(skb_small_head_alloc,
+
+	TP_PROTO(void* location, const void* data, unsigned int len),
+
+	TP_ARGS(location, data, len),
+
+	TP_STRUCT__entry(
+		__field( void*, location )
+		__field(	const void *,		dataaddr		)
+		__field(	int,			len		)
+	),
+
+	TP_fast_assign(
+		__entry->location = location;
+		__entry->dataaddr = data;
+		__entry->len = len;
+	),
+
+	TP_printk("location=%pS ptr=%p len=%d", __entry->location, __entry->dataaddr, __entry->len)
+);
+
+TRACE_EVENT(skb_small_head_free,
+
+	TP_PROTO(void* location, const void* data),
+
+	TP_ARGS(location, data),
+
+	TP_STRUCT__entry(
+		__field( void*, location )
+		__field(	const void *,		dataaddr		)
+	),
+
+	TP_fast_assign(
+		__entry->location = location;
+		__entry->dataaddr = data;
+	),
+
+	TP_printk("location=%pS ptr=%p", __entry->location, __entry->dataaddr)
+);
+
 #endif /* _TRACE_SKB_H */
 
 /* This part must be outside protection */
