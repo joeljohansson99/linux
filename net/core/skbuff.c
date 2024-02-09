@@ -6416,6 +6416,8 @@ struct sk_buff *alloc_skb_with_frags(unsigned long header_len,
 	if (!skb)
 		return NULL;
 
+	trace_alloc_skb_with_frags(__builtin_return_address(0), skb, header_len, data_len);	
+
 	while (data_len) {
 		if (nr_frags == MAX_SKB_FRAGS - 1)
 			goto failure;
