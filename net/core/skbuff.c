@@ -1009,6 +1009,8 @@ static void skb_free_head(struct sk_buff *skb, bool napi_safe)
 {
 	unsigned char *head = skb->head;
 
+	memzero_explicit(head, skb_end_offset(skb));
+
 	if (skb->head_frag) {
 		if (skb_pp_recycle(skb, head, napi_safe))
 			return;
