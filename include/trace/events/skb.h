@@ -285,6 +285,53 @@ TRACE_EVENT(alloc_skb_with_frags,
 );
 
 
+TRACE_EVENT(skb_release_data_info,
+
+	TP_PROTO(void* location, const struct sk_buff* skb, unsigned int len, unsigned int head_len, unsigned int data_len),
+
+	TP_ARGS(location, skb, len, head_len, data_len),
+
+	TP_STRUCT__entry(
+		__field(	void *,	location)
+		__field(	const void *,		skbaddr		)
+		__field(	int,			len		)
+		__field(	int,			head_len		)
+		__field(	int,			data_len		)
+	),
+
+	TP_fast_assign(
+		__entry->location = location;
+		__entry->skbaddr = skb;
+		__entry->len = len;
+		__entry->head_len = head_len;
+		__entry->data_len = data_len;
+	),
+
+	TP_printk("location=%pS skb=%p, len=%d head_len=%d data_len=%d", __entry->location, __entry->skbaddr, __entry->len, __entry->head_len, __entry->data_len)
+);
+
+TRACE_EVENT(kfree_skb_partial,
+
+	TP_PROTO(void* location, const struct sk_buff* skb, bool head_stolen),
+
+	TP_ARGS(location, skb, head_stolen),
+
+	TP_STRUCT__entry(
+		__field(	void *,	location)
+		__field(	const void *,		skbaddr		)
+		__field(	bool,			head_stolen		)
+	),
+
+	TP_fast_assign(
+		__entry->location = location;
+		__entry->skbaddr = skb;
+		__entry->head_stolen = head_stolen;
+	),
+
+	TP_printk("location=%pS skb=%p, head_stolen=%d", __entry->location, __entry->skbaddr, __entry->head_stolen)
+);
+
+
 #endif /* _TRACE_SKB_H */
 
 /* This part must be outside protection */
