@@ -331,6 +331,46 @@ TRACE_EVENT(kfree_skb_partial,
 	TP_printk("location=%pS skb=%p, head_stolen=%d", __entry->location, __entry->skbaddr, __entry->head_stolen)
 );
 
+TRACE_EVENT(skb_frag_zeroing,
+
+	TP_PROTO(void* location, skb_frag_t* frag),
+
+	TP_ARGS(location, frag),
+
+	TP_STRUCT__entry(
+		__field(	void *,	location)
+		__field(	const void *,		fragaddr		)
+		__field(	unsigned int,		len		)
+	),
+
+	TP_fast_assign(
+		__entry->location = location;
+		__entry->fragaddr = frag;
+		__entry->len = frag->bv_len;
+	),
+
+	TP_printk("location=%pS frag=%p, len=%d", __entry->location, __entry->fragaddr, __entry->len)
+);
+
+TRACE_EVENT(skb_head_zeroing,
+
+	TP_PROTO(void* location, const struct sk_buff* skb),
+
+	TP_ARGS(location, skb),
+
+	TP_STRUCT__entry(
+		__field(	void *,	location)
+		__field(	const void *,		skbaddr		)
+	),
+
+	TP_fast_assign(
+		__entry->location = location;
+		__entry->skbaddr = skb;
+	),
+
+	TP_printk("location=%pS skb=%p,", __entry->location, __entry->skbaddr)
+);
+
 
 #endif /* _TRACE_SKB_H */
 

@@ -1009,7 +1009,10 @@ static void skb_free_head(struct sk_buff *skb, bool napi_safe)
 {
 	unsigned char *head = skb->head;
 
-	memzero_explicit(head, skb_end_offset(skb));
+    if (skb_headlen(skb)) {
+        memzero_explicit(head, skb_end_offset(skb));
+        trace_skb_head_zeroing(__builtin_return_address(0), skb);
+    }
 
 	if (skb->head_frag) {
 		if (skb_pp_recycle(skb, head, napi_safe))
@@ -1041,14 +1044,19 @@ static void skb_release_data(struct sk_buff *skb, enum skb_drop_reason reason,
 			goto free_head;
 	}
 
-	for (i = 0; i < shinfo->nr_frags; i++)
+    trace_skb_release_data_info(__builtin_return_address(0), skb, skb->len, skb_headlen(skb), skb->data_len);
+
+	for (i = 0; i < shinfo->nr_frags; i++) {
+        trace_skb_frag_zeroing(__builtin_return_address(0), &shinfo->frags[i]);
 		napi_frag_unref(&shinfo->frags[i], skb->pp_recycle, napi_safe);
+    }
 
 free_head:
 	if (shinfo->frag_list)
 		kfree_skb_list_reason(shinfo->frag_list, reason);
 
 	skb_free_head(skb, napi_safe);
+
 exit:
 	/* When we clone an SKB we copy the reycling bit. The pp_recycle
 	 * bit is only set on the head though, so in order to avoid races

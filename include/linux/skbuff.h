@@ -38,6 +38,7 @@
 #include <net/net_debug.h>
 #include <net/dropreason-core.h>
 
+
 /**
  * DOC: skb checksums
  *
@@ -3452,8 +3453,7 @@ static inline void
 napi_frag_unref(skb_frag_t *frag, bool recycle, bool napi_safe)
 {
 	struct page *page = skb_frag_page(frag);
-
-	memzero_bvec(frag);
+    memzero_bvec(frag);
 
 #ifdef CONFIG_PAGE_POOL
 	if (recycle && napi_pp_put_page(page, napi_safe))
