@@ -1010,7 +1010,7 @@ static void skb_free_head(struct sk_buff *skb, bool napi_safe)
 	unsigned char *head = skb->head;
 
     if (skb_headlen(skb)) {
-        memzero_explicit(head, skb_end_offset(skb));
+        memzero_explicit(skb->data, skb_headlen(skb));
         trace_skb_head_zeroing(__builtin_return_address(0), skb);
     }
 
