@@ -159,7 +159,7 @@ TRACE_EVENT(skb_head_kmalloc,
 
 TRACE_EVENT(skb_head_frag_free,
 
-	TP_PROTO(const struct sk_buff *skb, const struct page *page, const const void* data),
+	TP_PROTO(const struct sk_buff *skb, const struct page *page, const void* data),
 
 
 	TP_ARGS(skb, page, data),
@@ -354,21 +354,25 @@ TRACE_EVENT(skb_frag_zeroing,
 
 TRACE_EVENT(skb_head_zeroing,
 
-	TP_PROTO(void* location, const struct sk_buff* skb),
+	TP_PROTO(void* location, const struct sk_buff* skb, unsigned int data_offset, unsigned int end_offset),
 
-	TP_ARGS(location, skb),
+	TP_ARGS(location, skb, data_offset, end_offset),
 
 	TP_STRUCT__entry(
 		__field(	void *,	location)
 		__field(	const void *,		skbaddr		)
+        __field(    unsigned int, data_offset)
+        __field(    unsigned int, end_offset)
 	),
 
 	TP_fast_assign(
 		__entry->location = location;
 		__entry->skbaddr = skb;
+		__entry->data_offset = data_offset;
+		__entry->end_offset = end_offset;
 	),
 
-	TP_printk("location=%pS skb=%p,", __entry->location, __entry->skbaddr)
+	TP_printk("location=%pS skb=%p, data_offset=%d, end_offset=%d", __entry->location, __entry->skbaddr, __entry->data_offset, __entry->end_offset)
 );
 
 

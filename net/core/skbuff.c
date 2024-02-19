@@ -1011,7 +1011,7 @@ static void skb_free_head(struct sk_buff *skb, bool napi_safe)
 
     if (skb_headlen(skb)) {
         memzero_explicit(skb->data, skb_headlen(skb));
-        trace_skb_head_zeroing(__builtin_return_address(0), skb);
+        trace_skb_head_zeroing(__builtin_return_address(0), skb, (unsigned int) (skb->data - skb->head), skb_end_offset(skb));
     }
 
 	if (skb->head_frag) {
@@ -5808,6 +5808,7 @@ EXPORT_SYMBOL(__skb_warn_lro_forwarding);
 
 void kfree_skb_partial(struct sk_buff *skb, bool head_stolen)
 {
+    trace_kfree_skb_partial(__builtin_return_address(0), skb, head_stolen);
 	if (head_stolen) {
 		skb_release_head_state(skb);
 		kmem_cache_free(skbuff_cache, skb);
