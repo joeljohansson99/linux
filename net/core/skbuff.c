@@ -298,7 +298,7 @@ void *__napi_alloc_frag_align(unsigned int fragsz, unsigned int align_mask)
 	struct napi_alloc_cache *nc = this_cpu_ptr(&napi_alloc_cache);
 
 	fragsz = SKB_DATA_ALIGN(fragsz);
-	
+
 	data = page_frag_alloc_align(&nc->page, fragsz, GFP_ATOMIC, align_mask);
 
 	trace_napi_alloc_frag(__builtin_return_address(0), virt_to_head_page(data), data, fragsz);
@@ -6416,7 +6416,7 @@ struct sk_buff *alloc_skb_with_frags(unsigned long header_len,
 	if (!skb)
 		return NULL;
 
-	trace_alloc_skb_with_frags(__builtin_return_address(0), skb, header_len, data_len);	
+	trace_alloc_skb_with_frags(__builtin_return_address(0), skb, header_len, data_len);
 
 	while (data_len) {
 		if (nr_frags == MAX_SKB_FRAGS - 1)
