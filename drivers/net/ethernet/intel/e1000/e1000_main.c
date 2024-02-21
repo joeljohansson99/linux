@@ -2,6 +2,7 @@
 /* Copyright(c) 1999 - 2006 Intel Corporation. */
 
 #include "e1000.h"
+#include "linux/string.h"
 #include <net/ip6_checksum.h>
 #include <linux/io.h>
 #include <linux/prefetch.h>
@@ -4318,7 +4319,7 @@ next_desc:
  */
 static struct sk_buff *e1000_copybreak(struct e1000_adapter *adapter,
 				       struct e1000_rx_buffer *buffer_info,
-				       u32 length, const void *data)
+				       u32 length, void *data)
 {
 	struct sk_buff *skb;
 
@@ -4333,6 +4334,7 @@ static struct sk_buff *e1000_copybreak(struct e1000_adapter *adapter,
 				length, DMA_FROM_DEVICE);
 
 	skb_put_data(skb, data, length);
+	memzero_explicit(data, length);
 
 	return skb;
 }
