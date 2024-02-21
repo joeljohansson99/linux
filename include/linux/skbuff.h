@@ -355,6 +355,9 @@ struct sk_buff;
 
 extern int sysctl_max_skb_frags;
 
+extern u8 sysctl_skb_zeroing;
+
+
 /* Set skb_shinfo(skb)->gso_size to this in case you want skb_segment to
  * segment using its current segmentation instead.
  */
@@ -3453,7 +3456,8 @@ static inline void
 napi_frag_unref(skb_frag_t *frag, bool recycle, bool napi_safe)
 {
 	struct page *page = skb_frag_page(frag);
-    memzero_bvec(frag);
+    if (READ_ONCE(sysctl_skb_zeroing))
+        memzero_bvec(frag);
 
 #ifdef CONFIG_PAGE_POOL
 	if (recycle && napi_pp_put_page(page, napi_safe))

@@ -115,6 +115,10 @@ static struct kmem_cache *skb_small_head_cache __ro_after_init;
 int sysctl_max_skb_frags __read_mostly = MAX_SKB_FRAGS;
 EXPORT_SYMBOL(sysctl_max_skb_frags);
 
+
+u8 sysctl_skb_zeroing __read_mostly = 0;
+EXPORT_SYMBOL(sysctl_skb_zeroing);
+
 #undef FN
 #define FN(reason) [SKB_DROP_REASON_##reason] = #reason,
 static const char * const drop_reasons[] = {
@@ -1009,7 +1013,7 @@ static void skb_free_head(struct sk_buff *skb, bool napi_safe)
 {
 	unsigned char *head = skb->head;
 
-    if (skb_headlen(skb)) {
+    if (READ_ONCE(sysctl_skb_zeroing) && skb_headlen(skb)) {
         memzero_explicit(skb->data, skb_headlen(skb));
         trace_skb_head_zeroing(__builtin_return_address(0), skb, (unsigned int) (skb->data - skb->head), skb_end_offset(skb));
     }
