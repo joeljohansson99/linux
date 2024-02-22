@@ -1048,10 +1048,10 @@ static void skb_release_data(struct sk_buff *skb, enum skb_drop_reason reason,
 			goto free_head;
 	}
 
-    trace_skb_release_data_info(__builtin_return_address(0), skb, skb->len, skb_headlen(skb), skb->data_len);
+    trace_skb_release_data_info(__builtin_return_address(0), skb, virt_to_head_page(skb->head), skb->len, skb_headlen(skb), skb->data_len);
 
 	for (i = 0; i < shinfo->nr_frags; i++) {
-        trace_skb_frag_zeroing(__builtin_return_address(0), &shinfo->frags[i]);
+        trace_skb_frag_zeroing(__builtin_return_address(0), &shinfo->frags[i], skb_frag_page(&shinfo->frags[i]));
 		napi_frag_unref(&shinfo->frags[i], skb->pp_recycle, napi_safe);
     }
 

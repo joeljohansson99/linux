@@ -289,13 +289,14 @@ TRACE_EVENT(alloc_skb_with_frags,
 
 TRACE_EVENT(skb_release_data_info,
 
-	TP_PROTO(void* location, const struct sk_buff* skb, unsigned int len, unsigned int head_len, unsigned int data_len),
+	TP_PROTO(void* location, const struct sk_buff* skb, const struct page* page, unsigned int len, unsigned int head_len, unsigned int data_len),
 
-	TP_ARGS(location, skb, len, head_len, data_len),
+	TP_ARGS(location, skb, page, len, head_len, data_len),
 
 	TP_STRUCT__entry(
 		__field(	void *,	location)
 		__field(	const void *,		skbaddr		)
+        __field(    const void *,       pageaddr    )
 		__field(	int,			len		)
 		__field(	int,			head_len		)
 		__field(	int,			data_len		)
@@ -304,12 +305,13 @@ TRACE_EVENT(skb_release_data_info,
 	TP_fast_assign(
 		__entry->location = location;
 		__entry->skbaddr = skb;
+        __entry->pageaddr = page;
 		__entry->len = len;
 		__entry->head_len = head_len;
 		__entry->data_len = data_len;
 	),
 
-	TP_printk("location=%pS skb=%p, len=%d head_len=%d data_len=%d", __entry->location, __entry->skbaddr, __entry->len, __entry->head_len, __entry->data_len)
+	TP_printk("location=%pS skb=%p, page=%p len=%d head_len=%d data_len=%d", __entry->location, __entry->skbaddr, __entry->pageaddr, __entry->len, __entry->head_len, __entry->data_len)
 );
 
 TRACE_EVENT(kfree_skb_partial,
@@ -335,23 +337,25 @@ TRACE_EVENT(kfree_skb_partial,
 
 TRACE_EVENT(skb_frag_zeroing,
 
-	TP_PROTO(void* location, skb_frag_t* frag),
+	TP_PROTO(void* location, skb_frag_t* frag, const struct page* page),
 
-	TP_ARGS(location, frag),
+	TP_ARGS(location, frag, page),
 
 	TP_STRUCT__entry(
 		__field(	void *,	location)
 		__field(	const void *,		fragaddr		)
+        __field(    const void *,       pageaddr        )
 		__field(	unsigned int,		len		)
 	),
 
 	TP_fast_assign(
 		__entry->location = location;
 		__entry->fragaddr = frag;
+        __entry->pageaddr = page;
 		__entry->len = frag->bv_len;
 	),
 
-	TP_printk("location=%pS frag=%p, len=%d", __entry->location, __entry->fragaddr, __entry->len)
+	TP_printk("location=%pS frag=%p, page=%p, len=%d", __entry->location, __entry->fragaddr, __entry->pageaddr, __entry->len)
 );
 
 TRACE_EVENT(skb_head_zeroing,
@@ -363,6 +367,7 @@ TRACE_EVENT(skb_head_zeroing,
 	TP_STRUCT__entry(
 		__field(	void *,	location)
 		__field(	const void *,		skbaddr		)
+        __field(    const void *, pageaddr)
         __field(    unsigned int, data_offset)
         __field(    unsigned int, end_offset)
 	),
@@ -370,11 +375,12 @@ TRACE_EVENT(skb_head_zeroing,
 	TP_fast_assign(
 		__entry->location = location;
 		__entry->skbaddr = skb;
+        __entry->pageaddr = virt_to_head_page(skb->head);
 		__entry->data_offset = data_offset;
 		__entry->end_offset = end_offset;
 	),
 
-	TP_printk("location=%pS skb=%p, data_offset=%d, end_offset=%d", __entry->location, __entry->skbaddr, __entry->data_offset, __entry->end_offset)
+	TP_printk("location=%pS skb=%p, page=%p, data_offset=%d, end_offset=%d", __entry->location, __entry->skbaddr, __entry->pageaddr, __entry->data_offset, __entry->end_offset)
 );
 
 
