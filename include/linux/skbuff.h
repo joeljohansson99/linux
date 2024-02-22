@@ -3456,9 +3456,15 @@ static inline void
 napi_frag_unref(skb_frag_t *frag, bool recycle, bool napi_safe)
 {
 	struct page *page = skb_frag_page(frag);
-    if (READ_ONCE(sysctl_skb_zeroing))
-        memzero_bvec(frag);
-
+    if (READ_ONCE(sysctl_skb_zeroing)){
+        u32 p_off, p_len, copied;
+		struct page *p;
+        skb_frag_foreach_page(frag, skb_frag_off(frag),
+				      skb_frag_size(frag), p, p_off, p_len,
+				      copied) {
+			memzero_page(p, p_off, p_len);
+		}
+    }
 #ifdef CONFIG_PAGE_POOL
 	if (recycle && napi_pp_put_page(page, napi_safe))
 		return;
