@@ -135,7 +135,7 @@ TRACE_EVENT(netdev_alloc_frag,
 		__entry->len = len;
 	),
 
-	TP_printk("location=%pS page=%p ptr=%p,len=%d", __entry->location, __entry->pageaddr, __entry->dataaddr, __entry->len)
+	TP_printk("location=%pS page=%p ptr=%p len=%d", __entry->location, __entry->pageaddr, __entry->dataaddr, __entry->len)
 );
 
 TRACE_EVENT(skb_head_kmalloc,
@@ -311,7 +311,7 @@ TRACE_EVENT(skb_release_data_info,
 		__entry->data_len = data_len;
 	),
 
-	TP_printk("location=%pS skb=%p, page=%p len=%d head_len=%d data_len=%d", __entry->location, __entry->skbaddr, __entry->pageaddr, __entry->len, __entry->head_len, __entry->data_len)
+	TP_printk("location=%pS skb=%p page=%p len=%d head_len=%d data_len=%d", __entry->location, __entry->skbaddr, __entry->pageaddr, __entry->len, __entry->head_len, __entry->data_len)
 );
 
 TRACE_EVENT(kfree_skb_partial,
@@ -332,30 +332,32 @@ TRACE_EVENT(kfree_skb_partial,
 		__entry->head_stolen = head_stolen;
 	),
 
-	TP_printk("location=%pS skb=%p, head_stolen=%d", __entry->location, __entry->skbaddr, __entry->head_stolen)
+	TP_printk("location=%pS skb=%p head_stolen=%d", __entry->location, __entry->skbaddr, __entry->head_stolen)
 );
 
 TRACE_EVENT(skb_frag_zeroing,
 
-	TP_PROTO(void* location, skb_frag_t* frag, const struct page* page),
+	TP_PROTO(void* location, skb_frag_t* frag, const struct page* page, int refcount),
 
-	TP_ARGS(location, frag, page),
+	TP_ARGS(location, frag, page, refcount),
 
 	TP_STRUCT__entry(
 		__field(	void *,	location)
 		__field(	const void *,		fragaddr		)
-        __field(    const void *,       pageaddr        )
+		__field(    const void *,       pageaddr        )
 		__field(	unsigned int,		len		)
+		__field(	unsigned int,		refcount		)
 	),
 
 	TP_fast_assign(
 		__entry->location = location;
 		__entry->fragaddr = frag;
-        __entry->pageaddr = page;
+		__entry->pageaddr = page;
 		__entry->len = frag->bv_len;
+		__entry->refcount = refcount;
 	),
 
-	TP_printk("location=%pS frag=%p, page=%p, len=%d", __entry->location, __entry->fragaddr, __entry->pageaddr, __entry->len)
+	TP_printk("location=%pS frag=%p page=%p len=%d refcount=%d", __entry->location, __entry->fragaddr, __entry->pageaddr, __entry->len, __entry->refcount)
 );
 
 TRACE_EVENT(skb_head_zeroing,
@@ -380,8 +382,46 @@ TRACE_EVENT(skb_head_zeroing,
 		__entry->end_offset = end_offset;
 	),
 
-	TP_printk("location=%pS skb=%p, page=%p, data_offset=%d, end_offset=%d", __entry->location, __entry->skbaddr, __entry->pageaddr, __entry->data_offset, __entry->end_offset)
+	TP_printk("location=%pS skb=%p page=%p data_offset=%d end_offset=%d", __entry->location, __entry->skbaddr, __entry->pageaddr, __entry->data_offset, __entry->end_offset)
 );
+
+TRACE_EVENT(skb_frag_ref,
+
+	    TP_PROTO(void *location, skb_frag_t *frag, struct page *page),
+
+	    TP_ARGS(location, frag, page),
+
+	    TP_STRUCT__entry(__field(void *, location) __field(void *, fragaddr)
+				     __field(void *, pageaddr)
+					     __field(int, refcount)),
+
+	    TP_fast_assign(__entry->location = location;
+			   __entry->fragaddr = frag; __entry->pageaddr = page;
+			   __entry->refcount = page_ref_count(page);),
+
+	    TP_printk("location=%pS frag=%p page=%p page_refcount=%d",
+		      __entry->location, __entry->fragaddr, __entry->pageaddr,
+		      __entry->refcount));
+
+TRACE_EVENT(skb_frag_unref,
+
+	    TP_PROTO(void *location, skb_frag_t *frag, struct page *page),
+
+	    TP_ARGS(location, frag, page),
+
+	    TP_STRUCT__entry(__field(void *, location) __field(void *, fragaddr)
+				     __field(void *, pageaddr)
+					     __field(int, refcount)),
+
+	    TP_fast_assign(__entry->location = location;
+			   __entry->fragaddr = frag; __entry->pageaddr = page;
+			   __entry->refcount = page_ref_count(page);),
+
+	    TP_printk("location=%pS frag=%p page=%p page_refcount=%d",
+		      __entry->location, __entry->fragaddr, __entry->pageaddr,
+		      __entry->refcount));
+
+
 
 
 #endif /* _TRACE_SKB_H */
