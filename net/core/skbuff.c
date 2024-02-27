@@ -1021,10 +1021,10 @@ static void skb_free_head(struct sk_buff *skb, bool napi_safe)
 {
 	unsigned char *head = skb->head;
 
-    if (READ_ONCE(sysctl_skb_zeroing) && skb_headlen(skb)) {
-        memzero_explicit(skb->data, skb_headlen(skb));
-        trace_skb_head_zeroing(__builtin_return_address(0), skb, (unsigned int) (skb->data - skb->head), skb_end_offset(skb));
-    }
+	if (READ_ONCE(sysctl_skb_zeroing) && skb_headlen(skb)) {
+		memzero_explicit(skb->data, skb_headlen(skb));
+		trace_skb_head_zeroing(__builtin_return_address(0), skb, (unsigned int) (skb->data - skb->head), skb_end_offset(skb));
+	}
 
 	if (skb->head_frag) {
 		if (skb_pp_recycle(skb, head, napi_safe))

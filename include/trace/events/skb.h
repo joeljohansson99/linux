@@ -337,27 +337,29 @@ TRACE_EVENT(kfree_skb_partial,
 
 TRACE_EVENT(skb_frag_zeroing,
 
-	TP_PROTO(void* location, skb_frag_t* frag, const struct page* page, int refcount),
+	TP_PROTO(void* location, skb_frag_t* frag, int refcount),
 
-	TP_ARGS(location, frag, page, refcount),
+	TP_ARGS(location, frag, refcount),
 
 	TP_STRUCT__entry(
 		__field(	void *,	location)
 		__field(	const void *,		fragaddr		)
 		__field(    const void *,       pageaddr        )
 		__field(	unsigned int,		len		)
+		__field(	unsigned int,		offset )
 		__field(	unsigned int,		refcount		)
 	),
 
 	TP_fast_assign(
 		__entry->location = location;
 		__entry->fragaddr = frag;
-		__entry->pageaddr = page;
+		__entry->pageaddr = frag->bv_page;
 		__entry->len = frag->bv_len;
+		__entry->offset = frag->bv_offset;
 		__entry->refcount = refcount;
 	),
 
-	TP_printk("location=%pS frag=%p page=%p len=%d refcount=%d", __entry->location, __entry->fragaddr, __entry->pageaddr, __entry->len, __entry->refcount)
+	TP_printk("location=%pS frag=%p page=%p len=%d offset=%d refcount=%d", __entry->location, __entry->fragaddr, __entry->pageaddr, __entry->offset, __entry->len, __entry->refcount)
 );
 
 TRACE_EVENT(skb_head_zeroing,
