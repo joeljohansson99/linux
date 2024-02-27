@@ -363,7 +363,15 @@ extern u8 sysctl_skb_zeroing;
  */
 #define GSO_BY_FRAGS	0xFFFF
 
-typedef struct bio_vec skb_frag_t;
+// typedef struct bio_vec skb_frag_t;
+typedef struct {
+	struct page	*bv_page;
+	unsigned int	bv_len;
+	unsigned int	bv_offset;
+	bool		can_zero;
+}
+skb_frag_t;
+
 
 /**
  * skb_frag_size() - Returns the size of a skb fragment
@@ -2439,6 +2447,7 @@ static inline void skb_frag_fill_page_desc(skb_frag_t *frag,
 {
 	frag->bv_page = page;
 	frag->bv_offset = off;
+	frag->can_zero = true;
 	skb_frag_size_set(frag, size);
 }
 
@@ -3460,15 +3469,15 @@ static inline void
 napi_frag_unref(skb_frag_t *frag, bool recycle, bool napi_safe)
 {
 	struct page *page = skb_frag_page(frag);
-    if (READ_ONCE(sysctl_skb_zeroing)){
-        u32 p_off, p_len, copied;
+	if (READ_ONCE(sysctl_skb_zeroing) && frag->can_zero){
 		struct page *p;
-        skb_frag_foreach_page(frag, skb_frag_off(frag),
+		u32 p_off, p_len, copied;
+		skb_frag_foreach_page(frag, skb_frag_off(frag),
 				      skb_frag_size(frag), p, p_off, p_len,
 				      copied) {
 			memzero_page(p, p_off, p_len);
 		}
-    }
+	}
 #ifdef CONFIG_PAGE_POOL
 	if (recycle && napi_pp_put_page(page, napi_safe))
 		return;

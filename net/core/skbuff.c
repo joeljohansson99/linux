@@ -1059,9 +1059,9 @@ static void skb_release_data(struct sk_buff *skb, enum skb_drop_reason reason,
 	trace_skb_release_data_info(__builtin_return_address(0), skb, virt_to_head_page(skb->head), skb->len, skb_headlen(skb), skb->data_len);
 
 	for (i = 0; i < shinfo->nr_frags; i++) {
-		trace_skb_frag_zeroing(__builtin_return_address(0), &shinfo->frags[i], skb_frag_page(&shinfo->frags[i]), atomic_read(&shinfo->dataref));
+		trace_skb_frag_zeroing(__builtin_return_address(0), &shinfo->frags[i], atomic_read(&shinfo->dataref));
 		napi_frag_unref(&shinfo->frags[i], skb->pp_recycle, napi_safe);
-    }
+	}
 
 free_head:
 	if (shinfo->frag_list)
@@ -2623,8 +2623,10 @@ int ___pskb_trim(struct sk_buff *skb, unsigned int len)
 drop_pages:
 		skb_shinfo(skb)->nr_frags = i;
 
-		for (; i < nfrags; i++)
+		for (; i < nfrags; i++) {
+			skb_shinfo(skb)->frags[i].can_zero = false;
 			skb_frag_unref(skb, i);
+		}
 
 		if (skb_has_frag_list(skb))
 			skb_drop_fraglist(skb);
@@ -4778,7 +4780,13 @@ normal:
 				goto err;
 			}
 
-			*nskb_frag = (i < 0) ? skb_head_frag_to_page_desc(frag_skb) : *frag;
+			if (i < 0) {
+				*nskb_frag = skb_head_frag_to_page_desc(frag_skb);
+				trace_printk("skb->head mapped to skb_frag!!!\n");
+			} else {
+				*nskb_frag = *frag;
+				frag->can_zero = false;
+			}
 			__skb_frag_ref(nskb_frag);
 			size = skb_frag_size(nskb_frag);
 
