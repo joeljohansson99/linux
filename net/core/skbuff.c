@@ -4153,6 +4153,7 @@ int skb_shift(struct sk_buff *tgt, struct sk_buff *skb, int shiftlen)
 		fragto = &skb_shinfo(tgt)->frags[merge];
 
 		skb_frag_size_add(fragto, skb_frag_size(fragfrom));
+		fragfrom->can_zero = false;
 		__skb_frag_unref(fragfrom, skb->pp_recycle);
 	}
 

@@ -366,9 +366,9 @@ extern u8 sysctl_skb_zeroing;
 // typedef struct bio_vec skb_frag_t;
 typedef struct {
 	struct page	*bv_page;
-	unsigned int	bv_len;
+	unsigned int	bv_len:31;
+	unsigned int	can_zero:1;
 	unsigned int	bv_offset;
-	bool		can_zero;
 }
 skb_frag_t;
 
