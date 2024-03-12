@@ -92,13 +92,13 @@ TRACE_EVENT(skb_copy_datagram_iovec,
 
 TRACE_EVENT(napi_alloc_frag,
 
-	TP_PROTO(void* location, const struct page *page, const void* data, unsigned int len),
+	TP_PROTO(void* location, const struct page *page, void* data, unsigned int len),
 
 	TP_ARGS(location, page, data, len),
 
 	TP_STRUCT__entry(
 		__field(	void *,	location)
-		__field(	unsigned long,	physaddr)
+		__field(	phys_addr_t,	physaddr)
 		__field(	const void *,		pageaddr		)
 		__field(	const void *,		dataaddr		)
 		__field(	int,			len		)
