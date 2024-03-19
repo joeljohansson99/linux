@@ -363,15 +363,7 @@ extern u8 sysctl_skb_zeroing;
  */
 #define GSO_BY_FRAGS	0xFFFF
 
-// typedef struct bio_vec skb_frag_t;
-typedef struct {
-	struct page	*bv_page;
-	unsigned int	bv_len:31;
-	unsigned int	can_zero:1;
-	unsigned int	bv_offset;
-}
-skb_frag_t;
-
+typedef struct bio_vec skb_frag_t;
 
 /**
  * skb_frag_size() - Returns the size of a skb fragment
@@ -603,7 +595,9 @@ struct skb_shared_info {
 		struct skb_shared_hwtstamps hwtstamps;
 		struct xsk_tx_metadata_compl xsk_meta;
 	};
-	unsigned int	gso_type;
+	u32		gso_type:24;
+	u32		frags_zero_from:7;
+	u32		dont_zero_head:1;
 	u32		tskey;
 
 	/*
@@ -2447,7 +2441,6 @@ static inline void skb_frag_fill_page_desc(skb_frag_t *frag,
 {
 	frag->bv_page = page;
 	frag->bv_offset = off;
-	frag->can_zero = true;
 	skb_frag_size_set(frag, size);
 }
 

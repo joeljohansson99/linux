@@ -1021,7 +1021,7 @@ static void skb_free_head(struct sk_buff *skb, bool napi_safe)
 {
 	unsigned char *head = skb->head;
 
-	if (READ_ONCE(sysctl_skb_zeroing) && skb_headlen(skb)) {
+	if (READ_ONCE(sysctl_skb_zeroing) && skb_headlen(skb) && !skb_shinfo(skb)->dont_zero_head) {
 		memzero_explicit(skb->data, skb_headlen(skb));
 		trace_skb_head_zeroing(__builtin_return_address(0), skb, (unsigned int) (skb->data - skb->head), skb_end_offset(skb));
 	}
@@ -1061,7 +1061,7 @@ static void skb_release_data(struct sk_buff *skb, enum skb_drop_reason reason,
 	for (i = 0; i < shinfo->nr_frags; i++) {
 		skb_frag_t *frag = &shinfo->frags[i];
 		trace_skb_frag_zeroing(__builtin_return_address(0), frag, atomic_read(&shinfo->dataref));
-		if (READ_ONCE(sysctl_skb_zeroing) && frag->can_zero){
+		if (READ_ONCE(sysctl_skb_zeroing) && i >= shinfo->frags_zero_from){
 			struct page *p;
 			u32 p_off, p_len, copied;
 			skb_frag_foreach_page(frag, skb_frag_off(frag),
@@ -2634,7 +2634,6 @@ drop_pages:
 		skb_shinfo(skb)->nr_frags = i;
 
 		for (; i < nfrags; i++) {
-			// skb_shinfo(skb)->frags[i].can_zero = false;
 			skb_frag_unref(skb, i);
 		}
 
@@ -4077,8 +4076,6 @@ int skb_shift(struct sk_buff *tgt, struct sk_buff *skb, int shiftlen)
 	int from, to, merge, todo;
 	skb_frag_t *fragfrom, *fragto;
 
-	trace_printk("skb_shift called from %pS\n", __builtin_return_address(0));
-
 	BUG_ON(shiftlen > skb->len);
 
 	if (skb_headlen(skb))
@@ -4165,7 +4162,6 @@ int skb_shift(struct sk_buff *tgt, struct sk_buff *skb, int shiftlen)
 		fragto = &skb_shinfo(tgt)->frags[merge];
 
 		skb_frag_size_add(fragto, skb_frag_size(fragfrom));
-		fragfrom->can_zero = false;
 		__skb_frag_unref(fragfrom, skb->pp_recycle);
 	}
 
@@ -4795,14 +4791,13 @@ normal:
 
 			if (i < 0) {
 				*nskb_frag = skb_head_frag_to_page_desc(frag_skb);
-				__skb_frag_ref(nskb_frag);
-				trace_printk("skb->head mapped to skb_frag!!!\n");
+				skb_shinfo(frag_skb)->dont_zero_head = 1;
 			} else {
 
 				*nskb_frag = *frag;
-				skb_shinfo(frag_skb)->nr_frags--;
-				// frag->can_zero = false;
+				skb_shinfo(frag_skb)->frags_zero_from = i + 1;
 			}
+			__skb_frag_ref(nskb_frag);
 			size = skb_frag_size(nskb_frag);
 
 			if (pos < offset) {
