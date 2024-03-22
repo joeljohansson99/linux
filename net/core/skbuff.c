@@ -2038,6 +2038,8 @@ void skb_copy_header(struct sk_buff *new, const struct sk_buff *old)
 	skb_shinfo(new)->gso_size = skb_shinfo(old)->gso_size;
 	skb_shinfo(new)->gso_segs = skb_shinfo(old)->gso_segs;
 	skb_shinfo(new)->gso_type = skb_shinfo(old)->gso_type;
+	skb_shinfo(new)->dont_zero_head = skb_shinfo(old)->dont_zero_head;
+	skb_shinfo(new)->frags_zero_from = skb_shinfo(old)->frags_zero_from;
 }
 EXPORT_SYMBOL(skb_copy_header);
 
@@ -3067,12 +3069,14 @@ static bool __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
 {
 	int seg;
 	struct sk_buff *iter;
+	struct skb_shared_info *shinfo = skb_shinfo(skb);
 
 	/* map the linear part :
 	 * If skb->head_frag is set, this 'linear' part is backed by a
 	 * fragment, and if the head is not shared with any clones then
 	 * we can avoid a copy since we own the head portion of this page.
 	 */
+	shinfo->dont_zero_head = !skb_head_is_locked(skb); // TODO: if we fail to splice should we zero?
 	if (__splice_segment(virt_to_page(skb->data),
 			     (unsigned long) skb->data & (PAGE_SIZE - 1),
 			     skb_headlen(skb),
@@ -3084,9 +3088,10 @@ static bool __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
 	/*
 	 * then map the fragments
 	 */
-	for (seg = 0; seg < skb_shinfo(skb)->nr_frags; seg++) {
-		const skb_frag_t *f = &skb_shinfo(skb)->frags[seg];
+	for (seg = 0; seg < shinfo->nr_frags; seg++) {
+		const skb_frag_t *f = &shinfo->frags[seg];
 
+		shinfo->frags_zero_from = seg + 1; // TODO: if we fail to splice should we zero? (maybe this can be after for loop?)
 		if (__splice_segment(skb_frag_page(f),
 				     skb_frag_off(f), skb_frag_size(f),
 				     offset, len, spd, false, sk, pipe))
@@ -5838,7 +5843,7 @@ EXPORT_SYMBOL(__skb_warn_lro_forwarding);
 
 void kfree_skb_partial(struct sk_buff *skb, bool head_stolen)
 {
-    trace_kfree_skb_partial(__builtin_return_address(0), skb, head_stolen);
+	trace_kfree_skb_partial(__builtin_return_address(0), skb, head_stolen);
 	if (head_stolen) {
 		skb_release_head_state(skb);
 		kmem_cache_free(skbuff_cache, skb);
@@ -5908,6 +5913,7 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
 		skb_fill_page_desc(to, to_shinfo->nr_frags,
 				   page, offset, skb_headlen(from));
 		*fragstolen = true;
+		from_shinfo->dont_zero_head = true;
 	} else {
 		if (to_shinfo->nr_frags +
 		    from_shinfo->nr_frags > MAX_SKB_FRAGS)
@@ -5925,6 +5931,8 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
 
 	if (!skb_cloned(from))
 		from_shinfo->nr_frags = 0;
+	else
+		from_shinfo->frags_zero_from = from_shinfo->nr_frags;
 
 	/* if the skb is not cloned this does nothing
 	 * since we set nr_frags to 0.
