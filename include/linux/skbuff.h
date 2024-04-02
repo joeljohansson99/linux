@@ -363,15 +363,7 @@ extern u8 sysctl_skb_zeroing;
  */
 #define GSO_BY_FRAGS	0xFFFF
 
-// typedef struct bio_vec skb_frag_t;
-typedef struct {
-	struct page	*bv_page;
-	unsigned int	bv_len:31;
-	unsigned int	can_zero:1;
-	unsigned int	bv_offset;
-}
-skb_frag_t;
-
+typedef struct bio_vec skb_frag_t;
 
 /**
  * skb_frag_size() - Returns the size of a skb fragment
@@ -603,7 +595,9 @@ struct skb_shared_info {
 		struct skb_shared_hwtstamps hwtstamps;
 		struct xsk_tx_metadata_compl xsk_meta;
 	};
-	unsigned int	gso_type;
+	unsigned int	gso_type:24;
+	unsigned int    zero_from_frag:7;
+	unsigned int    dont_zero_head:1;
 	u32		tskey;
 
 	/*
@@ -2447,7 +2441,6 @@ static inline void skb_frag_fill_page_desc(skb_frag_t *frag,
 {
 	frag->bv_page = page;
 	frag->bv_offset = off;
-	frag->can_zero = true;
 	skb_frag_size_set(frag, size);
 }
 
@@ -3469,15 +3462,7 @@ static inline void
 napi_frag_unref(skb_frag_t *frag, bool recycle, bool napi_safe)
 {
 	struct page *page = skb_frag_page(frag);
-	if (READ_ONCE(sysctl_skb_zeroing) && frag->can_zero){
-		struct page *p;
-		u32 p_off, p_len, copied;
-		skb_frag_foreach_page(frag, skb_frag_off(frag),
-				      skb_frag_size(frag), p, p_off, p_len,
-				      copied) {
-			memzero_page(p, p_off, p_len);
-		}
-	}
+
 #ifdef CONFIG_PAGE_POOL
 	if (recycle && napi_pp_put_page(page, napi_safe))
 		return;

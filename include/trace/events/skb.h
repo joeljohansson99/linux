@@ -71,6 +71,25 @@ TRACE_EVENT(consume_skb,
 	TP_printk("skbaddr=%p location=%pS", __entry->skbaddr, __entry->location)
 );
 
+TRACE_EVENT(kfree_skb_reason,
+
+	TP_PROTO(void *location, enum skb_drop_reason reason),
+
+	TP_ARGS(location, reason),
+
+	TP_STRUCT__entry(
+		__field(	void *,	location)
+		__field(	enum skb_drop_reason,	reason)
+	),
+
+	TP_fast_assign(
+		__entry->location = location;
+		__entry->reason = reason;
+	),
+
+	TP_printk("location=%pS, reason=%d", __entry->location, __entry->reason)
+);
+
 TRACE_EVENT(skb_copy_datagram_iovec,
 
 	TP_PROTO(const struct sk_buff *skb, int len),

@@ -1021,7 +1021,7 @@ static void skb_free_head(struct sk_buff *skb, bool napi_safe)
 {
 	unsigned char *head = skb->head;
 
-	if (READ_ONCE(sysctl_skb_zeroing) && skb_headlen(skb)) {
+	if (READ_ONCE(sysctl_skb_zeroing) && skb_headlen(skb) && !skb_shinfo(skb)->dont_zero_head) {
 		memzero_explicit(skb->data, skb_headlen(skb));
 		trace_skb_head_zeroing(__builtin_return_address(0), skb, (unsigned int) (skb->data - skb->head), skb_end_offset(skb));
 	}
@@ -1058,14 +1058,26 @@ static void skb_release_data(struct sk_buff *skb, enum skb_drop_reason reason,
 
 	trace_skb_release_data_info(__builtin_return_address(0), skb, virt_to_head_page(skb->head), skb->len, skb_headlen(skb), skb->data_len);
 
+
 	for (i = 0; i < shinfo->nr_frags; i++) {
-		trace_skb_frag_zeroing(__builtin_return_address(0), &shinfo->frags[i], atomic_read(&shinfo->dataref));
-		napi_frag_unref(&shinfo->frags[i], skb->pp_recycle, napi_safe);
+		skb_frag_t *frag = &shinfo->frags[i];
+		if (READ_ONCE(sysctl_skb_zeroing) && i >= shinfo->zero_from_frag){
+			trace_skb_frag_zeroing(__builtin_return_address(0), &shinfo->frags[i], atomic_read(&shinfo->dataref));
+			struct page *p;
+			u32 p_off, p_len, copied;
+			skb_frag_foreach_page(frag, skb_frag_off(frag),
+						skb_frag_size(frag), p, p_off, p_len,
+						copied) {
+				memzero_page(p, p_off, p_len);
+			}
+		}
+		napi_frag_unref(frag, skb->pp_recycle, napi_safe);
 	}
 
 free_head:
 	if (shinfo->frag_list)
 		kfree_skb_list_reason(shinfo->frag_list, reason);
+
 
 	skb_free_head(skb, napi_safe);
 
@@ -1183,8 +1195,10 @@ bool __kfree_skb_reason(struct sk_buff *skb, enum skb_drop_reason reason)
 void __fix_address
 kfree_skb_reason(struct sk_buff *skb, enum skb_drop_reason reason)
 {
-	if (__kfree_skb_reason(skb, reason))
+	if (__kfree_skb_reason(skb, reason)){
+		trace_kfree_skb_reason(__builtin_return_address(0), reason);
 		__kfree_skb(skb);
+	}
 }
 EXPORT_SYMBOL(kfree_skb_reason);
 
@@ -1891,6 +1905,7 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
 
 	if (!num_frags)
 		goto release;
+
 
 	/* We might have to allocate high order pages, so compute what minimum
 	 * page order is needed.
@@ -2624,7 +2639,6 @@ drop_pages:
 		skb_shinfo(skb)->nr_frags = i;
 
 		for (; i < nfrags; i++) {
-			skb_shinfo(skb)->frags[i].can_zero = false;
 			skb_frag_unref(skb, i);
 		}
 
@@ -3058,12 +3072,13 @@ static bool __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
 {
 	int seg;
 	struct sk_buff *iter;
-
 	/* map the linear part :
 	 * If skb->head_frag is set, this 'linear' part is backed by a
 	 * fragment, and if the head is not shared with any clones then
 	 * we can avoid a copy since we own the head portion of this page.
 	 */
+
+	skb_shinfo(skb)->dont_zero_head=1;
 	if (__splice_segment(virt_to_page(skb->data),
 			     (unsigned long) skb->data & (PAGE_SIZE - 1),
 			     skb_headlen(skb),
@@ -3077,6 +3092,7 @@ static bool __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
 	 */
 	for (seg = 0; seg < skb_shinfo(skb)->nr_frags; seg++) {
 		const skb_frag_t *f = &skb_shinfo(skb)->frags[seg];
+		skb_shinfo(skb)->zero_from_frag=seg+1;
 
 		if (__splice_segment(skb_frag_page(f),
 				     skb_frag_off(f), skb_frag_size(f),
@@ -4153,7 +4169,6 @@ int skb_shift(struct sk_buff *tgt, struct sk_buff *skb, int shiftlen)
 		fragto = &skb_shinfo(tgt)->frags[merge];
 
 		skb_frag_size_add(fragto, skb_frag_size(fragfrom));
-		fragfrom->can_zero = false;
 		__skb_frag_unref(fragfrom, skb->pp_recycle);
 	}
 
@@ -4783,10 +4798,10 @@ normal:
 
 			if (i < 0) {
 				*nskb_frag = skb_head_frag_to_page_desc(frag_skb);
-				trace_printk("skb->head mapped to skb_frag!!!\n");
+				skb_shinfo(frag_skb)->dont_zero_head = 1;
 			} else {
 				*nskb_frag = *frag;
-				frag->can_zero = false;
+				skb_shinfo(frag_skb)->zero_from_frag = i+1;
 			}
 			__skb_frag_ref(nskb_frag);
 			size = skb_frag_size(nskb_frag);
@@ -5899,6 +5914,7 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
 		skb_fill_page_desc(to, to_shinfo->nr_frags,
 				   page, offset, skb_headlen(from));
 		*fragstolen = true;
+		from_shinfo->dont_zero_head = 1;
 	} else {
 		if (to_shinfo->nr_frags +
 		    from_shinfo->nr_frags > MAX_SKB_FRAGS)
@@ -5916,6 +5932,8 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
 
 	if (!skb_cloned(from))
 		from_shinfo->nr_frags = 0;
+	else
+		from_shinfo->zero_from_frag = from_shinfo->nr_frags;
 
 	/* if the skb is not cloned this does nothing
 	 * since we set nr_frags to 0.

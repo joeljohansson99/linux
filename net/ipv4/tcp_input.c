@@ -4848,6 +4848,7 @@ static void tcp_drop_reason(struct sock *sk, struct sk_buff *skb,
 			    enum skb_drop_reason reason)
 {
 	sk_drops_add(sk, skb);
+	trace_printk("tcp_drop_reason\n");
 	kfree_skb_reason(skb, reason);
 }
 
@@ -5227,6 +5228,8 @@ queue_and_out:
 	if (!after(TCP_SKB_CB(skb)->end_seq, tp->rcv_nxt)) {
 		tcp_rcv_spurious_retrans(sk, skb);
 		/* A retransmit, 2nd most common case.  Force an immediate ack. */
+		trace_printk("OLD_DATA\n");
+		skb_shinfo(skb)->zero_from_frag=skb_shinfo(skb)->nr_frags;
 		reason = SKB_DROP_REASON_TCP_OLD_DATA;
 		NET_INC_STATS(sock_net(sk), LINUX_MIB_DELAYEDACKLOST);
 		tcp_dsack_set(sk, TCP_SKB_CB(skb)->seq, TCP_SKB_CB(skb)->end_seq);
@@ -6167,6 +6170,7 @@ step5:
 	tcp_urg(sk, skb, th);
 
 	/* step 7: process the segment text */
+
 	tcp_data_queue(sk, skb);
 
 	tcp_data_snd_check(sk);
