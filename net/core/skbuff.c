@@ -1060,10 +1060,10 @@ static void skb_release_data(struct sk_buff *skb, enum skb_drop_reason reason,
 
 	for (i = 0; i < shinfo->nr_frags; i++) {
 		skb_frag_t *frag = &shinfo->frags[i];
-		trace_skb_frag_zeroing(__builtin_return_address(0), frag, atomic_read(&shinfo->dataref));
-		if (READ_ONCE(sysctl_skb_zeroing) && i >= shinfo->frags_zero_from){
+		if (READ_ONCE(sysctl_skb_zeroing) && !skb_has_shared_frag(skb) && i >= shinfo->frags_zero_from){
 			struct page *p;
 			u32 p_off, p_len, copied;
+			trace_skb_frag_zeroing(__builtin_return_address(0), frag, atomic_read(&shinfo->dataref));
 			skb_frag_foreach_page(frag, skb_frag_off(frag),
 				      skb_frag_size(frag), p, p_off, p_len,
 				      copied) {
@@ -1955,7 +1955,7 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
 
 	/* skb frags release userspace buffers */
 	for (i = 0; i < num_frags; i++)
-		skb_frag_unref(skb, i);
+		skb_frag_unref(skb, i); // TODO: should probaly zero
 
 	/* skb frags point to kernel buffers */
 	for (i = 0; i < new_frags - 1; i++) {
