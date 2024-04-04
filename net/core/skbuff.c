@@ -3091,7 +3091,6 @@ static bool __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
 	for (seg = 0; seg < shinfo->nr_frags; seg++) {
 		const skb_frag_t *f = &shinfo->frags[seg];
 
-		shinfo->frags_zero_from = seg + 1; // TODO: if we fail to splice should we zero? (maybe this can be after for loop?)
 		if (__splice_segment(skb_frag_page(f),
 				     skb_frag_off(f), skb_frag_size(f),
 				     offset, len, spd, false, sk, pipe))
@@ -5913,7 +5912,6 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
 		skb_fill_page_desc(to, to_shinfo->nr_frags,
 				   page, offset, skb_headlen(from));
 		*fragstolen = true;
-		from_shinfo->dont_zero_head = true;
 	} else {
 		if (to_shinfo->nr_frags +
 		    from_shinfo->nr_frags > MAX_SKB_FRAGS)
