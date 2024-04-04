@@ -1058,9 +1058,9 @@ static void skb_release_data(struct sk_buff *skb, enum skb_drop_reason reason,
 
 	trace_skb_release_data_info(__builtin_return_address(0), skb, virt_to_head_page(skb->head), skb->len, skb_headlen(skb), skb->data_len);
 
-	for (i = 0; i < shinfo->nr_frags; i++) {
-		skb_frag_t *frag = &shinfo->frags[i];
-		if (READ_ONCE(sysctl_skb_zeroing) && !skb_has_shared_frag(skb) && i >= shinfo->frags_zero_from){
+	if (READ_ONCE(sysctl_skb_zeroing) && !skb_has_shared_frag(skb)) {
+		for (i = shinfo->frags_zero_from; i < shinfo->nr_frags; i++) {
+			skb_frag_t *frag = &shinfo->frags[i];
 			struct page *p;
 			u32 p_off, p_len, copied;
 			trace_skb_frag_zeroing(__builtin_return_address(0), frag, atomic_read(&shinfo->dataref));
@@ -1070,8 +1070,10 @@ static void skb_release_data(struct sk_buff *skb, enum skb_drop_reason reason,
 				memzero_page(p, p_off, p_len);
 			}
 		}
-		napi_frag_unref(frag, skb->pp_recycle, napi_safe);
 	}
+
+	for (i = 0; i < shinfo->nr_frags; i++)
+		napi_frag_unref(&shinfo->frags[i], skb->pp_recycle, napi_safe);
 
 free_head:
 	if (shinfo->frag_list)
