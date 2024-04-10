@@ -2623,6 +2623,8 @@ static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
 	skb->truesize += to_write;
 	refcount_add(to_write, &po->sk.sk_wmem_alloc);
 
+	skb_shinfo(skb)->frags_zero_from = MAX_SKB_FRAGS;
+
 	while (likely(to_write)) {
 		nr_frags = skb_shinfo(skb)->nr_frags;
 

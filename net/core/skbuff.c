@@ -3092,7 +3092,7 @@ static bool __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
 	 */
 	for (seg = 0; seg < shinfo->nr_frags; seg++) {
 		const skb_frag_t *f = &shinfo->frags[seg];
-
+		shinfo->frags_zero_from = seg + 1;
 		if (__splice_segment(skb_frag_page(f),
 				     skb_frag_off(f), skb_frag_size(f),
 				     offset, len, spd, false, sk, pipe))
