@@ -359,7 +359,7 @@ TRACE_EVENT(skb_frag_zeroing,
 		__entry->refcount = refcount;
 	),
 
-	TP_printk("location=%pS frag=%p page=%p len=%d offset=%d refcount=%d", __entry->location, __entry->fragaddr, __entry->pageaddr, __entry->offset, __entry->len, __entry->refcount)
+	TP_printk("location=%pS frag=%p page=%p len=%d offset=%d refcount=%d", __entry->location, __entry->fragaddr, __entry->pageaddr, __entry->len, __entry->offset, __entry->refcount)
 );
 
 TRACE_EVENT(skb_head_zeroing,

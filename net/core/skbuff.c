@@ -2216,7 +2216,7 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
 			refcount_inc(&skb_uarg(skb)->refcnt);
 		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
 			skb_frag_ref(skb, i);
-
+		skb_shinfo(skb)->frags_zero_from = skb_shinfo(skb)->nr_frags; // TODO: orphan frags instead?
 		if (skb_has_frag_list(skb))
 			skb_clone_fraglist(skb);
 
@@ -3978,6 +3978,7 @@ static inline void skb_split_inside_header(struct sk_buff *skb,
 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
 		skb_shinfo(skb1)->frags[i] = skb_shinfo(skb)->frags[i];
 
+	skb_shinfo(skb1)->frags_zero_from = skb_shinfo(skb)->frags_zero_from;
 	skb_shinfo(skb1)->nr_frags = skb_shinfo(skb)->nr_frags;
 	skb_shinfo(skb)->nr_frags  = 0;
 	skb1->data_len		   = skb->data_len;
@@ -4026,6 +4027,8 @@ static inline void skb_split_no_header(struct sk_buff *skb,
 		pos += size;
 	}
 	skb_shinfo(skb1)->nr_frags = k;
+	skb_shinfo(skb1)->frags_zero_from = skb_shinfo(skb)->nr_frags > skb_shinfo(skb)->frags_zero_from ?
+						0 : skb_shinfo(skb)->frags_zero_from - skb_shinfo(skb)->nr_frags;
 }
 
 /**
@@ -6535,6 +6538,7 @@ static int pskb_carve_inside_header(struct sk_buff *skb, const u32 off,
 		}
 		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
 			skb_frag_ref(skb, i);
+		skb_shinfo(skb)->frags_zero_from = skb_shinfo(skb)->nr_frags; // TODO: maybe orphan frags instead?
 		if (skb_has_frag_list(skb))
 			skb_clone_fraglist(skb);
 		skb_release_data(skb, SKB_CONSUMED, false);
