@@ -2648,6 +2648,7 @@ int ___pskb_trim(struct sk_buff *skb, unsigned int len)
 drop_pages:
 		skb_shinfo(skb)->nr_frags = i;
 
+		skb_zero_frags(skb, i, nfrags);
 		for (; i < nfrags; i++) {
 			// TODO: maybe zero
 			skb_frag_unref(skb, i);
