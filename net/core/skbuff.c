@@ -2849,7 +2849,7 @@ pull_pages:
 		int size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
 
 		if (size <= eat) {
-			// TODO: maybe zero
+			skb_zero_frags(skb, i, i+1);
 			skb_frag_unref(skb, i);
 			eat -= size;
 		} else {
