@@ -1037,6 +1037,22 @@ static void skb_free_head(struct sk_buff *skb, bool napi_safe)
 	}
 }
 
+static inline void skb_zero_frags(struct sk_buff *skb, int from, int to) {
+	if (READ_ONCE(sysctl_skb_zeroing) && !skb_has_shared_frag(skb)) {
+		for (int i = from; i < to; i++) {
+			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+			struct page *p;
+			u32 p_off, p_len, copied;
+			trace_skb_frag_zeroing(__builtin_return_address(0), frag, atomic_read(&skb_shinfo(skb)->dataref));
+			skb_frag_foreach_page(frag, skb_frag_off(frag),
+				      skb_frag_size(frag), p, p_off, p_len,
+				      copied) {
+				memzero_page(p, p_off, p_len);
+			}
+		}
+	}
+}
+
 static void skb_release_data(struct sk_buff *skb, enum skb_drop_reason reason,
 			     bool napi_safe)
 {
@@ -1058,20 +1074,10 @@ static void skb_release_data(struct sk_buff *skb, enum skb_drop_reason reason,
 
 	trace_skb_release_data_info(__builtin_return_address(0), skb, virt_to_head_page(skb->head), skb->len, skb_headlen(skb), skb->data_len);
 
-	if (READ_ONCE(sysctl_skb_zeroing) && !skb_has_shared_frag(skb)) {
-		for (i = shinfo->frags_zero_from; i < shinfo->nr_frags; i++) {
-			skb_frag_t *frag = &shinfo->frags[i];
-			struct page *p;
-			u32 p_off, p_len, copied;
-			trace_skb_frag_zeroing(__builtin_return_address(0), frag, atomic_read(&shinfo->dataref));
-			skb_frag_foreach_page(frag, skb_frag_off(frag),
-				      skb_frag_size(frag), p, p_off, p_len,
-				      copied) {
-				memzero_page(p, p_off, p_len);
-			}
-		}
-	}
-
+	if (shinfo->frags_zero_below)
+		skb_zero_frags(skb, 0, shinfo->frags_zero_idx);
+	else
+		skb_zero_frags(skb, shinfo->frags_zero_idx, shinfo->nr_frags);
 	for (i = 0; i < shinfo->nr_frags; i++)
 		napi_frag_unref(&shinfo->frags[i], skb->pp_recycle, napi_safe);
 
@@ -1957,7 +1963,7 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask)
 
 	/* skb frags release userspace buffers */
 	for (i = 0; i < num_frags; i++)
-		skb_frag_unref(skb, i); // TODO: should probaly zero
+		skb_frag_unref(skb, i);
 
 	/* skb frags point to kernel buffers */
 	for (i = 0; i < new_frags - 1; i++) {
@@ -2041,7 +2047,8 @@ void skb_copy_header(struct sk_buff *new, const struct sk_buff *old)
 	skb_shinfo(new)->gso_segs = skb_shinfo(old)->gso_segs;
 	skb_shinfo(new)->gso_type = skb_shinfo(old)->gso_type;
 	skb_shinfo(new)->dont_zero_head = skb_shinfo(old)->dont_zero_head;
-	skb_shinfo(new)->frags_zero_from = skb_shinfo(old)->frags_zero_from;
+	skb_shinfo(new)->frags_zero_below = skb_shinfo(old)->frags_zero_below;
+	skb_shinfo(new)->frags_zero_idx = skb_shinfo(old)->frags_zero_idx;
 }
 EXPORT_SYMBOL(skb_copy_header);
 
@@ -2151,6 +2158,9 @@ struct sk_buff *__pskb_copy_fclone(struct sk_buff *skb, int headroom,
 	}
 
 	skb_copy_header(n, skb);
+
+	skb_shinfo(skb)->frags_zero_below = 0;
+	skb_shinfo(skb)->frags_zero_idx = skb_shinfo(skb)->nr_frags;
 out:
 	return n;
 }
@@ -2216,7 +2226,8 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
 			refcount_inc(&skb_uarg(skb)->refcnt);
 		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
 			skb_frag_ref(skb, i);
-		skb_shinfo(skb)->frags_zero_from = skb_shinfo(skb)->nr_frags; // TODO: orphan frags instead?
+		skb_shinfo(skb)->frags_zero_below = 0;
+		skb_shinfo(skb)->frags_zero_idx = skb_shinfo(skb)->nr_frags;
 		if (skb_has_frag_list(skb))
 			skb_clone_fraglist(skb);
 
@@ -2836,6 +2847,7 @@ pull_pages:
 		int size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
 
 		if (size <= eat) {
+			// TODO: should probably zero
 			skb_frag_unref(skb, i);
 			eat -= size;
 		} else {
@@ -3078,7 +3090,7 @@ static bool __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
 	 * fragment, and if the head is not shared with any clones then
 	 * we can avoid a copy since we own the head portion of this page.
 	 */
-	shinfo->dont_zero_head = !skb_head_is_locked(skb); // TODO: if we fail to splice should we zero?
+	shinfo->dont_zero_head = !skb_head_is_locked(skb);
 	if (__splice_segment(virt_to_page(skb->data),
 			     (unsigned long) skb->data & (PAGE_SIZE - 1),
 			     skb_headlen(skb),
@@ -3090,9 +3102,10 @@ static bool __skb_splice_bits(struct sk_buff *skb, struct pipe_inode_info *pipe,
 	/*
 	 * then map the fragments
 	 */
+	shinfo->frags_zero_below = 0;
 	for (seg = 0; seg < shinfo->nr_frags; seg++) {
 		const skb_frag_t *f = &shinfo->frags[seg];
-		shinfo->frags_zero_from = seg + 1;
+		shinfo->frags_zero_idx = seg + 1; // don't zero spliced frags
 		if (__splice_segment(skb_frag_page(f),
 				     skb_frag_off(f), skb_frag_size(f),
 				     offset, len, spd, false, sk, pipe))
@@ -3978,7 +3991,8 @@ static inline void skb_split_inside_header(struct sk_buff *skb,
 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
 		skb_shinfo(skb1)->frags[i] = skb_shinfo(skb)->frags[i];
 
-	skb_shinfo(skb1)->frags_zero_from = skb_shinfo(skb)->frags_zero_from;
+	skb_shinfo(skb1)->frags_zero_below = skb_shinfo(skb)->frags_zero_below;
+	skb_shinfo(skb1)->frags_zero_idx = skb_shinfo(skb)->frags_zero_idx;
 	skb_shinfo(skb1)->nr_frags = skb_shinfo(skb)->nr_frags;
 	skb_shinfo(skb)->nr_frags  = 0;
 	skb1->data_len		   = skb->data_len;
@@ -3992,19 +4006,20 @@ static inline void skb_split_no_header(struct sk_buff *skb,
 				       struct sk_buff* skb1,
 				       const u32 len, int pos)
 {
+	struct skb_shared_info *shinfo = skb_shinfo(skb), *shinfo1 = skb_shinfo(skb1);
 	int i, k = 0;
-	const int nfrags = skb_shinfo(skb)->nr_frags;
+	const int nfrags = shinfo->nr_frags;
 
-	skb_shinfo(skb)->nr_frags = 0;
+	shinfo->nr_frags = 0;
 	skb1->len		  = skb1->data_len = skb->len - len;
 	skb->len		  = len;
 	skb->data_len		  = len - pos;
 
 	for (i = 0; i < nfrags; i++) {
-		int size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
+		int size = skb_frag_size(&shinfo->frags[i]);
 
 		if (pos + size > len) {
-			skb_shinfo(skb1)->frags[k] = skb_shinfo(skb)->frags[i];
+			shinfo1->frags[k] = shinfo->frags[i];
 
 			if (pos < len) {
 				/* Split frag.
@@ -4016,19 +4031,20 @@ static inline void skb_split_no_header(struct sk_buff *skb,
 				 * 2. Split is accurately. We make this.
 				 */
 				skb_frag_ref(skb, i);
-				skb_frag_off_add(&skb_shinfo(skb1)->frags[0], len - pos);
-				skb_frag_size_sub(&skb_shinfo(skb1)->frags[0], len - pos);
-				skb_frag_size_set(&skb_shinfo(skb)->frags[i], len - pos);
-				skb_shinfo(skb)->nr_frags++;
+				skb_frag_off_add(&shinfo1->frags[0], len - pos);
+				skb_frag_size_sub(&shinfo1->frags[0], len - pos);
+				skb_frag_size_set(&shinfo->frags[i], len - pos);
+				shinfo->nr_frags++;
 			}
 			k++;
 		} else
-			skb_shinfo(skb)->nr_frags++;
+			shinfo->nr_frags++;
 		pos += size;
 	}
-	skb_shinfo(skb1)->nr_frags = k;
-	skb_shinfo(skb1)->frags_zero_from = skb_shinfo(skb)->nr_frags > skb_shinfo(skb)->frags_zero_from ?
-						0 : skb_shinfo(skb)->frags_zero_from - skb_shinfo(skb)->nr_frags;
+	shinfo1->nr_frags = k;
+	shinfo1->frags_zero_below = shinfo->frags_zero_below;
+	shinfo->frags_zero_idx = min((u8)shinfo->frags_zero_idx, shinfo->nr_frags);
+	shinfo1->frags_zero_idx = max(0, (int)shinfo->frags_zero_idx - shinfo->nr_frags);
 }
 
 /**
@@ -4804,7 +4820,8 @@ normal:
 			} else {
 
 				*nskb_frag = *frag;
-				skb_shinfo(frag_skb)->frags_zero_from = i + 1;
+				skb_shinfo(frag_skb)->frags_zero_below = 0;
+				skb_shinfo(frag_skb)->frags_zero_idx = i + 1;
 			}
 			__skb_frag_ref(nskb_frag);
 			size = skb_frag_size(nskb_frag);
@@ -5934,8 +5951,10 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
 
 	if (!skb_cloned(from))
 		from_shinfo->nr_frags = 0;
-	else
-		from_shinfo->frags_zero_from = from_shinfo->nr_frags;
+	else {
+		from_shinfo->frags_zero_below = 0;
+		from_shinfo->frags_zero_idx = from_shinfo->nr_frags;
+	}
 
 	/* if the skb is not cloned this does nothing
 	 * since we set nr_frags to 0.
@@ -6538,7 +6557,8 @@ static int pskb_carve_inside_header(struct sk_buff *skb, const u32 off,
 		}
 		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
 			skb_frag_ref(skb, i);
-		skb_shinfo(skb)->frags_zero_from = skb_shinfo(skb)->nr_frags; // TODO: maybe orphan frags instead?
+		skb_shinfo(skb)->frags_zero_below = 0;
+		skb_shinfo(skb)->frags_zero_idx = skb_shinfo(skb)->nr_frags;
 		if (skb_has_frag_list(skb))
 			skb_clone_fraglist(skb);
 		skb_release_data(skb, SKB_CONSUMED, false);
@@ -6681,6 +6701,8 @@ static int pskb_carve_inside_nonlinear(struct sk_buff *skb, const u32 off,
 		skb_kfree_head(data, size);
 		return -ENOMEM;
 	}
+	skb_shinfo(skb)->frags_zero_below = 1;
+	skb_shinfo(skb)->frags_zero_idx = skb_shinfo(skb)->nr_frags - k;
 	skb_release_data(skb, SKB_CONSUMED, false);
 
 	skb->head = data;
