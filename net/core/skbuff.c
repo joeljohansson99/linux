@@ -2649,6 +2649,7 @@ drop_pages:
 		skb_shinfo(skb)->nr_frags = i;
 
 		for (; i < nfrags; i++) {
+			// TODO: maybe zero
 			skb_frag_unref(skb, i);
 		}
 
@@ -2847,7 +2848,7 @@ pull_pages:
 		int size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
 
 		if (size <= eat) {
-			// TODO: should probably zero
+			// TODO: maybe zero
 			skb_frag_unref(skb, i);
 			eat -= size;
 		} else {
@@ -3748,6 +3749,8 @@ skb_zerocopy(struct sk_buff *to, struct sk_buff *from, int len, int hlen)
 		skb_frag_ref(to, j);
 		j++;
 	}
+	skb_shinfo(from)->frags_zero_below = 0;
+	skb_shinfo(from)->frags_zero_idx = j;
 	skb_shinfo(to)->nr_frags = j;
 
 	return 0;
@@ -3993,6 +3996,8 @@ static inline void skb_split_inside_header(struct sk_buff *skb,
 
 	skb_shinfo(skb1)->frags_zero_below = skb_shinfo(skb)->frags_zero_below;
 	skb_shinfo(skb1)->frags_zero_idx = skb_shinfo(skb)->frags_zero_idx;
+	skb_shinfo(skb)->frags_zero_below = 0;
+	skb_shinfo(skb)->frags_zero_idx = skb_shinfo(skb)->nr_frags;
 	skb_shinfo(skb1)->nr_frags = skb_shinfo(skb)->nr_frags;
 	skb_shinfo(skb)->nr_frags  = 0;
 	skb1->data_len		   = skb->data_len;
@@ -5949,9 +5954,9 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
 	       from_shinfo->nr_frags * sizeof(skb_frag_t));
 	to_shinfo->nr_frags += from_shinfo->nr_frags;
 
-	if (!skb_cloned(from))
+	if (!skb_cloned(from)) {
 		from_shinfo->nr_frags = 0;
-	else {
+	} else {
 		from_shinfo->frags_zero_below = 0;
 		from_shinfo->frags_zero_idx = from_shinfo->nr_frags;
 	}
@@ -6702,7 +6707,7 @@ static int pskb_carve_inside_nonlinear(struct sk_buff *skb, const u32 off,
 		return -ENOMEM;
 	}
 	skb_shinfo(skb)->frags_zero_below = 1;
-	skb_shinfo(skb)->frags_zero_idx = skb_shinfo(skb)->nr_frags - k;
+	skb_shinfo(skb)->frags_zero_idx = nfrags - k;
 	skb_release_data(skb, SKB_CONSUMED, false);
 
 	skb->head = data;
