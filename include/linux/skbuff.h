@@ -3499,6 +3499,8 @@ static inline void skb_frag_unref(struct sk_buff *skb, int f)
 		__skb_frag_unref(&shinfo->frags[f], skb->pp_recycle);
 }
 
+void skb_zero_frags(struct sk_buff *skb, int from, int to);
+
 /**
  * skb_frag_address - gets the address of the data contained in a paged fragment
  * @frag: the paged fragment buffer

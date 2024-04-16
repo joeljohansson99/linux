@@ -1037,7 +1037,7 @@ static void skb_free_head(struct sk_buff *skb, bool napi_safe)
 	}
 }
 
-static inline void skb_zero_frags(struct sk_buff *skb, int from, int to) {
+void skb_zero_frags(struct sk_buff *skb, int from, int to) {
 	if (READ_ONCE(sysctl_skb_zeroing) && !skb_has_shared_frag(skb)) {
 		for (int i = from; i < to; i++) {
 			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
