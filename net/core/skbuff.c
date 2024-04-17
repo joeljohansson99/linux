@@ -1017,12 +1017,21 @@ static void skb_kfree_head(void *head, unsigned int end_offset)
 		kfree(head);
 }
 
+static __always_inline void memzero_explicit_simple(void *s, size_t count)
+{
+	char *addr = (char*) s;
+	for (int i = 0; i < count; i++)
+		addr[i] = 0;
+	// memset(s, 0, count);
+	barrier_data(addr);
+}
+
 static void skb_free_head(struct sk_buff *skb, bool napi_safe)
 {
 	unsigned char *head = skb->head;
 
 	if (READ_ONCE(sysctl_skb_zeroing) && skb_headlen(skb) && !skb_shinfo(skb)->dont_zero_head) {
-		memzero_explicit(skb->data, skb_headlen(skb));
+		memzero_explicit_simple(skb->data, skb_headlen(skb));
 		trace_skb_head_zeroing(__builtin_return_address(0), skb, (unsigned int) (skb->data - skb->head), skb_end_offset(skb));
 	}
 
@@ -1037,20 +1046,33 @@ static void skb_free_head(struct sk_buff *skb, bool napi_safe)
 	}
 }
 
+static __always_inline void memzero_page_simple(struct page *page, size_t offset, size_t len)
+{
+	char *addr = kmap_local_page(page);
+
+	VM_BUG_ON(offset + len > PAGE_SIZE);
+	for (int i = 0; i < len; i++)
+		addr[i+offset] = 0;
+	barrier_data(addr);
+	// memset(addr + offset, 0, len);
+	flush_dcache_page(page);
+	kunmap_local(addr);
+}
+
 void static __always_inline __skb_frag_zero(skb_frag_t* frag) {
 	struct page *p;
 	u32 p_off, p_len, copied;
 	skb_frag_foreach_page(frag, skb_frag_off(frag),
 		      skb_frag_size(frag), p, p_off, p_len,
 		      copied) {
-		memzero_page_explicit(p, p_off, p_len);
+		memzero_page_simple(p, p_off, p_len);
 	}
 }
 
 void skb_zero_frag_off(struct sk_buff *skb, int i, int off, int size) {
 	if (READ_ONCE(sysctl_skb_zeroing) && !skb_has_shared_frag(skb)) {
 		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-		memzero_page_explicit(skb_frag_page(frag), skb_frag_off(frag) + off, size);
+		memzero_page_simple(skb_frag_page(frag), skb_frag_off(frag) + off, size);
 	}
 }
 
