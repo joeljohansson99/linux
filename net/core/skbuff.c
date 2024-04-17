@@ -1043,7 +1043,7 @@ void static __always_inline __skb_frag_zero(skb_frag_t* frag) {
 	skb_frag_foreach_page(frag, skb_frag_off(frag),
 		      skb_frag_size(frag), p, p_off, p_len,
 		      copied) {
-		memzero_page(p, p_off, p_len);
+		memzero_page_explicit(p, p_off, p_len);
 	}
 }
 

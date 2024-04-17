@@ -439,6 +439,17 @@ static inline void memzero_page(struct page *page, size_t offset, size_t len)
 	kunmap_local(addr);
 }
 
+static inline void memzero_page_explicit(struct page *page, size_t offset, size_t len)
+{
+	char *addr = kmap_local_page(page);
+
+	VM_BUG_ON(offset + len > PAGE_SIZE);
+	memset(addr + offset, 0, len);
+	barrier_data(addr);
+	flush_dcache_page(page);
+	kunmap_local(addr);
+}
+
 static inline void memcpy_from_folio(char *to, struct folio *folio,
 		size_t offset, size_t len)
 {
