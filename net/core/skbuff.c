@@ -1037,18 +1037,28 @@ static void skb_free_head(struct sk_buff *skb, bool napi_safe)
 	}
 }
 
+void static __always_inline __skb_frag_zero(skb_frag_t* frag) {
+	struct page *p;
+	u32 p_off, p_len, copied;
+	skb_frag_foreach_page(frag, skb_frag_off(frag),
+		      skb_frag_size(frag), p, p_off, p_len,
+		      copied) {
+		memzero_page(p, p_off, p_len);
+	}
+}
+
+void skb_zero_frag(struct sk_buff *skb, int i) {
+	if (READ_ONCE(sysctl_skb_zeroing) && !skb_has_shared_frag(skb)) {
+		__skb_frag_zero(&skb_shinfo(skb)->frags[i]);
+	}
+}
+
 void skb_zero_frags(struct sk_buff *skb, int from, int to) {
 	if (READ_ONCE(sysctl_skb_zeroing) && !skb_has_shared_frag(skb)) {
 		for (int i = from; i < to; i++) {
 			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-			struct page *p;
-			u32 p_off, p_len, copied;
 			trace_skb_frag_zeroing(__builtin_return_address(0), frag, atomic_read(&skb_shinfo(skb)->dataref));
-			skb_frag_foreach_page(frag, skb_frag_off(frag),
-				      skb_frag_size(frag), p, p_off, p_len,
-				      copied) {
-				memzero_page(p, p_off, p_len);
-			}
+			__skb_frag_zero(frag);
 		}
 	}
 }
@@ -2849,7 +2859,7 @@ pull_pages:
 		int size = skb_frag_size(&skb_shinfo(skb)->frags[i]);
 
 		if (size <= eat) {
-			skb_zero_frags(skb, i, i+1);
+			skb_zero_frag(skb, i);
 			skb_frag_unref(skb, i);
 			eat -= size;
 		} else {

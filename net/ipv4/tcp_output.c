@@ -1695,7 +1695,7 @@ static int __pskb_trim_head(struct sk_buff *skb, int len)
 		int size = skb_frag_size(&shinfo->frags[i]);
 
 		if (size <= eat) {
-			skb_zero_frags(skb, i, i+1);
+			skb_zero_frag(skb, i);
 			skb_frag_unref(skb, i);
 			eat -= size;
 		} else {
