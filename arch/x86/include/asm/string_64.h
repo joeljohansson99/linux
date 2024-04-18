@@ -21,6 +21,7 @@ extern void *__memcpy(void *to, const void *from, size_t len);
 #define __HAVE_ARCH_MEMSET
 void *memset(void *s, int c, size_t n);
 void *__memset(void *s, int c, size_t n);
+void *memset_nt(void *s, int c, size_t n);
 
 /*
  * KMSAN needs to instrument as much code as possible. Use C versions of

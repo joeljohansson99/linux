@@ -143,6 +143,7 @@ extern __kernel_size_t strcspn(const char *,const char *);
 
 #ifndef __HAVE_ARCH_MEMSET
 extern void * memset(void *,int,__kernel_size_t);
+extern void * memset_nt(void *,int,__kernel_size_t);
 #endif
 
 #ifndef __HAVE_ARCH_MEMSET16
