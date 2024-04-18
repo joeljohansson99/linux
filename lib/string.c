@@ -523,6 +523,17 @@ void *memset(void *s, int c, size_t count)
 	return s;
 }
 EXPORT_SYMBOL(memset);
+
+void *memset_nt(void *s, int c, size_t count)
+{
+	char *xs = s;
+
+	BUG_ON(1);
+	while (count--)
+		*xs++ = c;
+	return s;
+}
+EXPORT_SYMBOL(memset_nt);
 #endif
 
 #ifndef __HAVE_ARCH_MEMSET16
