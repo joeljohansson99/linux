@@ -2835,18 +2835,6 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
 
 	i = tx_ring->next_to_use;
 
-	// Go though data and check for all zeros
-	int zeroed = 1;
-	int ii;
-	for (ii = 0; ii < len; ii++) {
-		if (skb->data[ii] != 0) {
-			zeroed = 0;
-			break;
-		}
-	}
-	if (zeroed)
-		trace_printk("skb_data_zeroed_in_xmit skb=%p len=%u\n", skb, len);
-
 	while (len) {
 		buffer_info = &tx_ring->buffer_info[i];
 		size = min(len, max_per_txd);
@@ -2906,21 +2894,9 @@ static int e1000_tx_map(struct e1000_adapter *adapter,
 
 	for (f = 0; f < nr_frags; f++) {
 		const skb_frag_t *frag = &skb_shinfo(skb)->frags[f];
-		char* frag_data = skb_frag_address(frag);
 
 		len = skb_frag_size(frag);
 		offset = 0;
-
-		zeroed = 1;
-		for (ii = 0; ii < len; ii++) {
-			if (frag_data[ii] != 0) {
-				zeroed = 0;
-				break;
-			}
-		}
-		if (zeroed)
-			trace_printk("skb_frag_zeroed_in_xmit skb=%p frag=%p page=%p offset=%d len=%u\n", skb, frag, frag->bv_page, frag->bv_offset, len);
-
 
 		while (len) {
 			unsigned long bufend;
