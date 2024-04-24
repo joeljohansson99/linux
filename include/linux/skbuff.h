@@ -3499,6 +3499,7 @@ static inline void skb_frag_unref(struct sk_buff *skb, int f)
 		__skb_frag_unref(&shinfo->frags[f], skb->pp_recycle);
 }
 
+void skb_zero_frag_off(struct sk_buff *skb, int i, int off, int size);
 void skb_zero_frag(struct sk_buff *skb, int i);
 void skb_zero_frags(struct sk_buff *skb, int from, int to);
 

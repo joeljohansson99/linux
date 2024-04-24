@@ -1047,6 +1047,13 @@ void static __always_inline __skb_frag_zero(skb_frag_t* frag) {
 	}
 }
 
+void skb_zero_frag_off(struct sk_buff *skb, int i, int off, int size) {
+	if (READ_ONCE(sysctl_skb_zeroing) && !skb_has_shared_frag(skb)) {
+		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+		memzero_page_explicit(skb_frag_page(frag), skb_frag_off(frag) + off, size);
+	}
+}
+
 void skb_zero_frag(struct sk_buff *skb, int i) {
 	if (READ_ONCE(sysctl_skb_zeroing) && !skb_has_shared_frag(skb)) {
 		__skb_frag_zero(&skb_shinfo(skb)->frags[i]);
@@ -2867,6 +2874,7 @@ pull_pages:
 
 			*frag = skb_shinfo(skb)->frags[i];
 			if (eat) {
+				skb_zero_frag_off(skb, i, 0, eat);
 				skb_frag_off_add(frag, eat);
 				skb_frag_size_sub(frag, eat);
 				if (!i)
@@ -4834,7 +4842,6 @@ normal:
 				*nskb_frag = skb_head_frag_to_page_desc(frag_skb);
 				skb_shinfo(frag_skb)->dont_zero_head = 1;
 			} else {
-
 				*nskb_frag = *frag;
 				skb_shinfo(frag_skb)->frags_zero_below = 0;
 				skb_shinfo(frag_skb)->frags_zero_idx = i + 1;
@@ -4843,6 +4850,7 @@ normal:
 			size = skb_frag_size(nskb_frag);
 
 			if (pos < offset) {
+				skb_zero_frag_off(nskb, skb_shinfo(nskb)->nr_frags, 0, offset - pos);
 				skb_frag_off_add(nskb_frag, offset - pos);
 				skb_frag_size_sub(nskb_frag, offset - pos);
 			}
@@ -6697,6 +6705,7 @@ static int pskb_carve_inside_nonlinear(struct sk_buff *skb, const u32 off,
 				 *    where splitting is expensive.
 				 * 2. Split is accurately. We make this.
 				 */
+				skb_zero_frag_off(skb, i, 0, off - pos);
 				skb_frag_off_add(&shinfo->frags[0], off - pos);
 				skb_frag_size_sub(&shinfo->frags[0], off - pos);
 			}
