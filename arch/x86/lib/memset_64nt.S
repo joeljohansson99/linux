@@ -20,8 +20,10 @@ SYM_FUNC_START(memset_nt)
 	movl  %edi,%r9d
 	andl  $7,%r9d
 	jnz  .Lbad_alignment
-.Lafter_bad_alignment:
+	cmpq $7,%rdx
+	jbe	.Lhandle_small
 
+.Lafter_bad_alignment:
 	movq  %rdx,%rcx
 	shrq  $6,%rcx
 	jz	 .Lhandle_tail
@@ -58,12 +60,11 @@ SYM_FUNC_START(memset_nt)
 .Lhandle_7:
 	andl	$7,%edx
 	jz      .Lende
-	.p2align 4
-.Lloop_1:
-	decl    %edx
-	/* movb 	%al,(%rdi) */ /* TODO */
-	leaq	1(%rdi),%rdi
-	jnz     .Lloop_1
+	/* Move rdi back to do an unaligned store. */
+	movq $8,%r8
+	subq %rdx,%r8
+	subq %r8,%rdi
+	movnti %rax,(%rdi)	/* unaligned store */
 
 .Lende:
 	sfence
@@ -72,13 +73,24 @@ SYM_FUNC_START(memset_nt)
 
 .Lbad_alignment:
 	cmpq $7,%rdx
-	jbe	.Lhandle_7
+	jbe	.Lhandle_small
 	movnti %rax,(%rdi)	/* unaligned store */
 	movq $8,%r8
 	subq %r9,%r8
 	addq %r8,%rdi
 	subq %r8,%rdx
 	jmp .Lafter_bad_alignment
+
+.Lhandle_small:
+	andl	$7,%edx
+	jz      .Lende
+	.p2align 4
+.Lloop_1:
+	decl    %edx
+	movb 	%al,(%rdi) /* not a non-temporal store */
+	leaq	1(%rdi),%rdi
+	jnz     .Lloop_1
+	jmp     .Lende
 .Lfinal:
 SYM_FUNC_END(memset_nt)
 EXPORT_SYMBOL(memset_nt)
