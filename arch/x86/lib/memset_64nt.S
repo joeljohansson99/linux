@@ -37,7 +37,6 @@ SYM_FUNC_START(memset_nt)
 	movnti  %rax,40(%rdi)
 	movnti  %rax,48(%rdi)
 	movnti  %rax,56(%rdi)
-	sfence
 	leaq  64(%rdi),%rdi
 	jnz    .Lloop_64
 
@@ -53,7 +52,6 @@ SYM_FUNC_START(memset_nt)
 .Lloop_8:
 	decl   %ecx
 	movnti  %rax,(%rdi)
-	sfence
 	leaq  8(%rdi),%rdi
 	jnz    .Lloop_8
 
@@ -63,11 +61,12 @@ SYM_FUNC_START(memset_nt)
 	.p2align 4
 .Lloop_1:
 	decl    %edx
-	movb 	%al,(%rdi) /* TODO */
+	/* movb 	%al,(%rdi) */ /* TODO */
 	leaq	1(%rdi),%rdi
 	jnz     .Lloop_1
 
 .Lende:
+	sfence
 	movq	%r10,%rax
 	RET
 
@@ -75,7 +74,6 @@ SYM_FUNC_START(memset_nt)
 	cmpq $7,%rdx
 	jbe	.Lhandle_7
 	movnti %rax,(%rdi)	/* unaligned store */
-	sfence
 	movq $8,%r8
 	subq %r9,%r8
 	addq %r8,%rdi
