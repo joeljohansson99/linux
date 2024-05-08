@@ -1019,7 +1019,9 @@ static void skb_kfree_head(void *head, unsigned int end_offset)
 
 static inline void memzero_nt_explicit(void *s, size_t count)
 {
+	kernel_fpu_begin();
 	memset_nt(s, 0, count);
+	kernel_fpu_end();
 	barrier_data(s);
 }
 
