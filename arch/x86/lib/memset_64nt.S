@@ -15,6 +15,7 @@ SYM_FUNC_START(memset_nt)
 	movzbl %sil,%ecx
 	movabs $0x0101010101010101,%rax
 	imulq  %rcx,%rax
+	movq %mm0,%rax
 
 	/* align dst */
 	movl  %edi,%r9d
@@ -31,14 +32,14 @@ SYM_FUNC_START(memset_nt)
 	.p2align 4
 .Lloop_64:
 	decq  %rcx
-	movnti  %rax,(%rdi)
-	movnti  %rax,8(%rdi)
-	movnti  %rax,16(%rdi)
-	movnti  %rax,24(%rdi)
-	movnti  %rax,32(%rdi)
-	movnti  %rax,40(%rdi)
-	movnti  %rax,48(%rdi)
-	movnti  %rax,56(%rdi)
+	movntq  %mm0,(%rdi)
+	movntq  %mm0,8(%rdi)
+	movntq  %mm0,16(%rdi)
+	movntq  %mm0,24(%rdi)
+	movntq  %mm0,32(%rdi)
+	movntq  %mm0,40(%rdi)
+	movntq  %mm0,48(%rdi)
+	movntq  %mm0,56(%rdi)
 	leaq  64(%rdi),%rdi
 	jnz    .Lloop_64
 
@@ -53,7 +54,7 @@ SYM_FUNC_START(memset_nt)
 	.p2align 4
 .Lloop_8:
 	decl   %ecx
-	movnti  %rax,(%rdi)
+	movntq %mm0,(%rdi)
 	leaq  8(%rdi),%rdi
 	jnz    .Lloop_8
 
@@ -64,17 +65,18 @@ SYM_FUNC_START(memset_nt)
 	movq $8,%r8
 	subq %rdx,%r8
 	subq %r8,%rdi
-	movnti %rax,(%rdi)	/* unaligned store */
+	movntq %mm0,(%rdi)	/* unaligned store */
 
 .Lende:
 	sfence
 	movq	%r10,%rax
+	emms
 	RET
 
 .Lbad_alignment:
 	cmpq $7,%rdx
 	jbe	.Lhandle_small
-	movnti %rax,(%rdi)	/* unaligned store */
+	movntq %mm0,(%rdi)	/* unaligned store */
 	movq $8,%r8
 	subq %r9,%r8
 	addq %r8,%rdi
