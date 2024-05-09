@@ -201,6 +201,7 @@ merge:
 	if (offset > headlen) {
 		unsigned int eat = offset - headlen;
 
+		skb_zero_frag_off(skb, 0, 0, eat);
 		skb_frag_off_add(&skbinfo->frags[0], eat);
 		skb_frag_size_sub(&skbinfo->frags[0], eat);
 		skb->data_len -= eat;
@@ -397,6 +398,7 @@ static void gro_pull_from_frag0(struct sk_buff *skb, int grow)
 	skb->data_len -= grow;
 	skb->tail += grow;
 
+	skb_zero_frag_off(skb, 0, 0, grow);
 	skb_frag_off_add(&pinfo->frags[0], grow);
 	skb_frag_size_sub(&pinfo->frags[0], grow);
 

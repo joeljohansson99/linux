@@ -596,7 +596,8 @@ struct skb_shared_info {
 		struct xsk_tx_metadata_compl xsk_meta;
 	};
 	u32		gso_type:24;
-	u32		frags_zero_from:7;
+	u32		frags_zero_idx:6;
+	u32		frags_zero_below:1;
 	u32		dont_zero_head:1;
 	u32		tskey;
 
@@ -3497,6 +3498,10 @@ static inline void skb_frag_unref(struct sk_buff *skb, int f)
 	if (!skb_zcopy_managed(skb))
 		__skb_frag_unref(&shinfo->frags[f], skb->pp_recycle);
 }
+
+void skb_zero_frag_off(struct sk_buff *skb, int i, int off, int size);
+void skb_zero_frag(struct sk_buff *skb, int i);
+void skb_zero_frags(struct sk_buff *skb, int from, int to);
 
 /**
  * skb_frag_address - gets the address of the data contained in a paged fragment

@@ -195,6 +195,8 @@ static void tls_strp_flush_anchor_copy(struct tls_strparser *strp)
 
 	DEBUG_NET_WARN_ON_ONCE(atomic_read(&shinfo->dataref) != 1);
 
+	skb_zero_frags(strp->anchor, 0, shinfo->nr_frags);
+
 	for (i = 0; i < shinfo->nr_frags; i++)
 		__skb_frag_unref(&shinfo->frags[i], false);
 	shinfo->nr_frags = 0;
