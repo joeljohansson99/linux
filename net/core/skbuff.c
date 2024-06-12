@@ -1088,7 +1088,7 @@ static void skb_free_head(struct sk_buff *skb)
 	}
 }
 
-void static __always_inline __skb_frag_zero(skb_frag_t* frag) {
+static __always_inline void __skb_frag_zero(skb_frag_t* frag) {
 	struct page *p;
 	u32 p_off, p_len, copied;
 	skb_frag_foreach_page(frag, skb_frag_off(frag),
