@@ -391,9 +391,7 @@ static ssize_t iwl_dbgfs_wifi_6e_enable_read(struct file *file,
 	char buf[12];
 	u32 value;
 
-	err = iwl_acpi_get_dsm_u32(mvm->fwrt.dev, 0,
-				   DSM_FUNC_ENABLE_6E,
-				   &iwl_guid, &value);
+	err = iwl_bios_get_dsm(&mvm->fwrt, DSM_FUNC_ENABLE_6E, &value);
 	if (err)
 		return err;
 
@@ -756,7 +754,6 @@ static ssize_t iwl_dbgfs_fw_ver_read(struct file *file, char __user *user_buf,
 	struct iwl_mvm *mvm = file->private_data;
 	char *buff, *pos, *endpos;
 	static const size_t bufsz = 1024;
-	char _fw_name_pre[FW_NAME_PRE_BUFSIZE];
 	int ret;
 
 	buff = kmalloc(bufsz, GFP_KERNEL);
@@ -766,8 +763,8 @@ static ssize_t iwl_dbgfs_fw_ver_read(struct file *file, char __user *user_buf,
 	pos = buff;
 	endpos = pos + bufsz;
 
-	pos += scnprintf(pos, endpos - pos, "FW prefix: %s\n",
-			 iwl_drv_get_fwname_pre(mvm->trans, _fw_name_pre));
+	pos += scnprintf(pos, endpos - pos, "FW id: %s\n",
+			 mvm->fwrt.fw->fw_version);
 	pos += scnprintf(pos, endpos - pos, "FW: %s\n",
 			 mvm->fwrt.fw->human_readable);
 	pos += scnprintf(pos, endpos - pos, "Device: %s\n",
@@ -877,14 +874,14 @@ static ssize_t iwl_dbgfs_tas_get_status_read(struct file *file,
 			 le16_to_cpu(rsp->curr_mcc));
 
 	pos += scnprintf(pos, endpos - pos, "Block list entries:");
-	for (i = 0; i < APCI_WTAS_BLACK_LIST_MAX; i++)
+	for (i = 0; i < IWL_WTAS_BLACK_LIST_MAX; i++)
 		pos += scnprintf(pos, endpos - pos, " 0x%x",
 				 le16_to_cpu(rsp->block_list[i]));
 
 	pos += scnprintf(pos, endpos - pos, "\nOEM name: %s\n",
-			 dmi_get_system_info(DMI_SYS_VENDOR));
+			 dmi_get_system_info(DMI_SYS_VENDOR) ?: "<unknown>");
 	pos += scnprintf(pos, endpos - pos, "\tVendor In Approved List: %s\n",
-			 iwl_mvm_is_vendor_in_approved_list() ? "YES" : "NO");
+			 iwl_is_tas_approved() ? "YES" : "NO");
 	pos += scnprintf(pos, endpos - pos,
 			 "\tDo TAS Support Dual Radio?: %s\n",
 			 rsp->in_dual_radio ? "TRUE" : "FALSE");
@@ -1398,6 +1395,8 @@ static ssize_t iwl_dbgfs_fw_nmi_write(struct iwl_mvm *mvm, char *buf,
 	if (!iwl_mvm_firmware_running(mvm))
 		return -EIO;
 
+	IWL_ERR(mvm, "Triggering an NMI from debugfs\n");
+
 	if (count == 6 && !strcmp(buf, "nolog\n"))
 		set_bit(IWL_MVM_STATUS_SUPPRESS_ERROR_LOG_ONCE, &mvm->status);
 
@@ -1618,6 +1617,15 @@ static int _iwl_dbgfs_inject_beacon_ie(struct iwl_mvm *mvm, char *bin, int len)
 		iwl_mvm_mac_ctxt_set_tim(mvm, &beacon_cmd.tim_idx,
 					 &beacon_cmd.tim_size,
 					 beacon->data, beacon->len);
+
+		if (iwl_fw_lookup_cmd_ver(mvm->fw,
+					  BEACON_TEMPLATE_CMD, 0) >= 14) {
+			u32 offset = iwl_mvm_find_ie_offset(beacon->data,
+							    WLAN_EID_S1G_TWT,
+							    beacon->len);
+
+			beacon_cmd.btwt_offset = cpu_to_le32(offset);
+		}
 
 		iwl_mvm_mac_ctxt_send_beacon_cmd(mvm, beacon, &beacon_cmd,
 						 sizeof(beacon_cmd));
@@ -2440,6 +2448,9 @@ void iwl_mvm_dbgfs_register(struct iwl_mvm *mvm)
 
 	debugfs_create_file("mem", 0600, mvm->debugfs_dir, mvm,
 			    &iwl_dbgfs_mem_ops);
+
+	debugfs_create_bool("rx_ts_ptp", 0600, mvm->debugfs_dir,
+			    &mvm->rx_ts_ptp);
 
 	/*
 	 * Create a symlink with mac80211. It will be removed when mac80211

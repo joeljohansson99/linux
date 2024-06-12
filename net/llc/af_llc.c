@@ -226,6 +226,8 @@ static int llc_ui_release(struct socket *sock)
 	}
 	netdev_put(llc->dev, &llc->dev_tracker);
 	sock_put(sk);
+	sock_orphan(sk);
+	sock->sk = NULL;
 	llc_sk_free(sk);
 out:
 	return 0;
@@ -686,14 +688,13 @@ static void llc_cmsg_rcv(struct msghdr *msg, struct sk_buff *skb)
  *	llc_ui_accept - accept a new incoming connection.
  *	@sock: Socket which connections arrive on.
  *	@newsock: Socket to move incoming connection to.
- *	@flags: User specified operational flags.
- *	@kern: If the socket is kernel internal
+ *	@arg: User specified arguments
  *
  *	Accept a new incoming connection.
  *	Returns 0 upon success, negative otherwise.
  */
-static int llc_ui_accept(struct socket *sock, struct socket *newsock, int flags,
-			 bool kern)
+static int llc_ui_accept(struct socket *sock, struct socket *newsock,
+			 struct proto_accept_arg *arg)
 {
 	struct sock *sk = sock->sk, *newsk;
 	struct llc_sock *llc, *newllc;

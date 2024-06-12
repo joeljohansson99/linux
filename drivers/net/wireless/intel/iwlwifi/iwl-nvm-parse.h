@@ -7,7 +7,7 @@
 #define __iwl_nvm_parse_h__
 
 #include <net/cfg80211.h>
-#include "iwl-eeprom-parse.h"
+#include "iwl-nvm-utils.h"
 #include "mei/iwl-mei.h"
 
 /**
@@ -50,7 +50,7 @@ iwl_parse_nvm_data(struct iwl_trans *trans, const struct iwl_cfg *cfg,
 struct ieee80211_regdomain *
 iwl_parse_nvm_mcc_info(struct device *dev, const struct iwl_cfg *cfg,
 		       int num_of_ch, __le32 *channels, u16 fw_mcc,
-		       u16 geo_info, u32 cap, u8 resp_ver);
+		       u16 geo_info, u32 cap, u8 resp_ver, bool uats_enabled);
 
 /**
  * struct iwl_nvm_section - describes an NVM section in memory.
