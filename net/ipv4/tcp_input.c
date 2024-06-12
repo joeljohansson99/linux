@@ -1564,7 +1564,6 @@ int tcp_skb_shift(struct sk_buff *to, struct sk_buff *from,
 	 * to make sure not storing more than 65535 * 8 bytes per skb,
 	 * even if current MSS is bigger.
 	 */
-	trace_printk("tcp_skb_shift: called from %pS\n", __builtin_return_address(0));
 	if (unlikely(to->len + shiftlen >= 65535 * TCP_MIN_GSO_SIZE))
 		return 0;
 	if (unlikely(tcp_skb_pcount(to) + pcount > 65535))

@@ -4335,8 +4335,8 @@ static struct sk_buff *e1000_copybreak(struct e1000_adapter *adapter,
 				length, DMA_FROM_DEVICE);
 
 	skb_put_data(skb, data, length);
-    if (READ_ONCE(sysctl_skb_zeroing))
-	    memzero_explicit(data, length);
+	if (READ_ONCE(sysctl_skb_zeroing))
+		memzero_explicit(data, length);
 
 	return skb;
 }

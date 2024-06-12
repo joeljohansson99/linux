@@ -38,7 +38,6 @@
 #include <net/net_debug.h>
 #include <net/dropreason-core.h>
 
-
 /**
  * DOC: skb checksums
  *
@@ -356,7 +355,6 @@ struct sk_buff;
 extern int sysctl_max_skb_frags;
 
 extern u8 sysctl_skb_zeroing;
-
 
 /* Set skb_shinfo(skb)->gso_size to this in case you want skb_segment to
  * segment using its current segmentation instead.
@@ -3430,9 +3428,6 @@ static inline struct page *skb_frag_page(const skb_frag_t *frag)
 	return frag->bv_page;
 }
 
-void do_trace_skb_frag_ref(skb_frag_t* frag);
-void do_trace_skb_frag_unref(skb_frag_t* frag);
-
 /**
  * __skb_frag_ref - take an addition reference on a paged fragment.
  * @frag: the paged fragment
@@ -3441,7 +3436,6 @@ void do_trace_skb_frag_unref(skb_frag_t* frag);
  */
 static inline void __skb_frag_ref(skb_frag_t *frag)
 {
-	do_trace_skb_frag_ref(frag);
 	get_page(skb_frag_page(frag));
 }
 
@@ -3463,11 +3457,11 @@ static inline void
 napi_frag_unref(skb_frag_t *frag, bool recycle, bool napi_safe)
 {
 	struct page *page = skb_frag_page(frag);
+
 #ifdef CONFIG_PAGE_POOL
 	if (recycle && napi_pp_put_page(page, napi_safe))
 		return;
 #endif
-	do_trace_skb_frag_unref(frag);
 	put_page(page);
 }
 
