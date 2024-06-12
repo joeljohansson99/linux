@@ -4030,8 +4030,8 @@ static inline void skb_split_no_header(struct sk_buff *skb,
 	}
 	shinfo1->nr_frags = k;
 	shinfo1->frags_zero_below = shinfo->frags_zero_below;
-	shinfo->frags_zero_idx = min((u8)shinfo->frags_zero_idx, shinfo->nr_frags);
-	shinfo1->frags_zero_idx = max(0, (int)shinfo->frags_zero_idx - shinfo->nr_frags);
+	shinfo->frags_zero_idx = min_t(u8, shinfo->frags_zero_idx, shinfo->nr_frags);
+	shinfo1->frags_zero_idx = max_t(int, 0, shinfo->frags_zero_idx - shinfo->nr_frags);
 }
 
 /**
